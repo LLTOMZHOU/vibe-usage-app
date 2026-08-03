@@ -164,12 +164,15 @@ private struct DonutCardView: View {
                                 Circle()
                                     .fill(slice.color)
                                     .frame(width: 7, height: 7)
+                                // Middle truncation: same-prefix projects (org/repo-a vs
+                                // org/repo-b) only differ at the tail, so keep it visible.
                                 Text(slice.label)
                                     .font(.system(size: 11))
                                     .foregroundStyle(Color(white: 0.7))
                                     .lineLimit(1)
-                                    .truncationMode(.tail)
+                                    .truncationMode(.middle)
                                     .frame(minWidth: 0, maxWidth: .infinity, alignment: .leading)
+                                    .help(slice.label)
                                 Spacer(minLength: 4)
                                 Text(valueText(slice))
                                     .font(.system(size: 11, design: .monospaced))

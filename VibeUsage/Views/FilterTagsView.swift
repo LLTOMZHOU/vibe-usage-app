@@ -226,9 +226,10 @@ struct FilterTagsView: View {
                     .font(.system(size: 12))
                     .foregroundStyle(isActive ? Color(white: 0.86) : Color(white: 0.42))
                     .lineLimit(1)
-                    .truncationMode(.tail)
+                    .truncationMode(.middle)
                     .minimumScaleFactor(0.75)
                     .layoutPriority(1)
+                    .help(summary)
 
                 Spacer(minLength: 0)
 
@@ -412,6 +413,7 @@ struct FilterTagsView: View {
                     .foregroundStyle(isSelected || isMixed ? Color.white : Color(white: 0.62))
                     .lineLimit(1)
                     .truncationMode(.middle)
+                    .help(title)
             }
             .padding(.leading, indent)
             .frame(minWidth: 0, maxWidth: .infinity, alignment: .leading)
