@@ -221,6 +221,7 @@ Token aggregation conventions (aligned with the web Vibe Usage page):
 
 - Font sizes: 14pt bold titles, 11-12pt labels, 9-10pt secondary, monospaced for numbers
 - All UI text in Chinese
+- **Dynamic long names (project / hostname) truncate in the MIDDLE, with a hover tooltip**: `.truncationMode(.middle)` + `.help(fullName)`. Same-prefix projects (`org/repo-a` vs `org/repo-b`) only differ at the tail, so tail truncation makes them indistinguishable — this was real user feedback (2026-08). The convention is cross-surface: web `/usage` and `vibe-usage-windows` implement the same behavior; new name-displaying UI in any of the three should follow it.
 - Window levels: Settings uses default `.normal` (so Sparkle update dialogs can sit above it); the popover panel uses `.popUpMenu` normally, lowered to `.normal` while Settings is visible
 
 ## Release Process
@@ -301,6 +302,8 @@ gh release upload vX.Y.Z dist/<missing-file> --clobber
 | Tag already exists from previous attempt | `gh release create` fails — use next patch version |
 
 ## Code Signing
+
+All three release credentials (Sparkle Ed25519 private key, Developer ID certificate, notarization profile) live on Yin Ming's release Mac only. On any other machine `generate_keys -p` reports "No existing signing key found" — that machine can develop and push to main, but must **not** attempt a release or generate a new key; coordinate with Yin Ming instead.
 
 - **Identity**: `Developer ID Application: Yin Ming (D33463FWDZ)`
 - **Notarization profile**: `VibeUsage` (stored in Keychain via `notarytool store-credentials`)
