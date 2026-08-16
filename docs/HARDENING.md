@@ -16,7 +16,8 @@ This fork starts from upstream app commit
 | Config/state permissions | Dedicated Application Support directory plus owner-only umask, directory mode `0700`, and file mode `0600`. |
 | Hostname disclosure | Stable random `Mac-XXXXXXXX` alias. |
 | Project and session disclosure | Both uploads default off and have separate settings toggles. |
-| Upload before privacy review | Remote sync itself defaults off; the UI directs the user to review VibeCafe's server-side public leaderboard first. |
+| Public ranking by server default | Leaderboard visibility defaults off in the app. Before parsing or upload, the collector applies that choice through the authenticated settings API and reads it back; failure cancels sync. |
+| Upload before privacy review | Remote sync itself defaults off and each additional disclosure has a separate opt-in. |
 | Silent Codex/Claude credential use | Both quota probes default off and disclose their access before opt-in. |
 | Codex token redirected by local proxy config | Quota fetch ignores custom `chatgpt_base_url` and uses only the official ChatGPT HTTPS origin. |
 | Upstream update replacing hardening | Sparkle and the upstream appcast are removed. Update checks open this fork's release page. |
@@ -25,10 +26,10 @@ This fork starts from upstream app commit
 ## Residual trust
 
 Token totals still come from local AI-tool logs and, after explicit consent,
-are uploaded to VibeCafe. The service controls storage, account settings, public
-leaderboard behavior, and server-side cost calculation. This fork cannot prove
-or change those server-side properties. Review and disable public listing on the
-VibeCafe website before enabling sync.
+are uploaded to VibeCafe. The service controls storage and server-side cost
+calculation. The fork can set and verify the documented `showInRank` account
+setting before upload, but it cannot prove how VibeCafe implements deletion,
+retention, access control, or leaderboard filtering internally.
 
 The app is not sandboxed because it must read logs belonging to several tools.
 Bundling and parser removal reduce the code-execution and credential blast

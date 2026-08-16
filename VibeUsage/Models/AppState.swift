@@ -202,6 +202,9 @@ final class AppState {
     var uploadSessionMetadata: Bool = false {
         didSet { UserDefaults.standard.set(uploadSessionMetadata, forKey: "uploadSessionMetadata") }
     }
+    var showInPublicLeaderboard: Bool = false {
+        didSet { UserDefaults.standard.set(showInPublicLeaderboard, forKey: "showInPublicLeaderboard") }
+    }
     var remoteSyncEnabled: Bool = false {
         didSet { UserDefaults.standard.set(remoteSyncEnabled, forKey: "remoteSyncEnabled") }
     }
@@ -258,6 +261,7 @@ final class AppState {
         self.claudeRateLimitEnabled = UserDefaults.standard.bool(forKey: "claudeRateLimitEnabled")
         self.uploadProjectNames = UserDefaults.standard.bool(forKey: "uploadProjectNames")
         self.uploadSessionMetadata = UserDefaults.standard.bool(forKey: "uploadSessionMetadata")
+        self.showInPublicLeaderboard = UserDefaults.standard.bool(forKey: "showInPublicLeaderboard")
         self.remoteSyncEnabled = UserDefaults.standard.bool(forKey: "remoteSyncEnabled")
         self.claudeUsesDesktopBundledCLI = ClaudeUsageProbe.primarySourceKind() == .desktop
 
@@ -292,6 +296,7 @@ final class AppState {
         defaults.set(false, forKey: "claudeRateLimitEnabled")
         defaults.set(false, forKey: "uploadProjectNames")
         defaults.set(false, forKey: "uploadSessionMetadata")
+        defaults.set(false, forKey: "showInPublicLeaderboard")
         defaults.set(false, forKey: "remoteSyncEnabled")
         defaults.set(true, forKey: migrationKey)
     }
@@ -317,6 +322,17 @@ final class AppState {
             syncScheduler?.stop()
             syncScheduler = nil
             syncStatus = .idle
+        }
+    }
+
+    /// The hardened fork owns this server setting while it syncs. Changing it
+    /// is explicit, persisted locally, and verified by the collector before
+    /// the next upload.
+    func setShowInPublicLeaderboard(_ enabled: Bool) async {
+        guard showInPublicLeaderboard != enabled else { return }
+        showInPublicLeaderboard = enabled
+        if remoteSyncEnabled, isConfigured {
+            await triggerSync()
         }
     }
 

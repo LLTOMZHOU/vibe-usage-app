@@ -20,8 +20,11 @@ issue.
 - Release builds send that key only to `https://vibecafe.ai`.
 - The collector child receives a narrow environment allowlist; ambient API
   keys, cloud credentials, and runtime injection variables are not inherited.
-- Project names, session metadata, remote sync, and credential-backed quota
-  probes default to off.
+- Project names, session metadata, remote sync, public leaderboard visibility,
+  and credential-backed quota probes default to off.
+- Before uploading, the collector applies the app's explicit leaderboard
+  choice to VibeCafe and reads it back. An unavailable or unconfirmed setting
+  cancels the sync without uploading data.
 - The device name sent to the service is a random local alias.
 - Cursor credential access and Antigravity process/RPC inspection are excluded.
 - Remote updates are human-reviewed downloads; the app cannot silently replace

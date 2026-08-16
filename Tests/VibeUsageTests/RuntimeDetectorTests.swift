@@ -15,6 +15,17 @@ final class RuntimeDetectorTests: XCTestCase {
     }
 
     func testCollectorEnvironmentDropsAmbientSecretsAndRuntimeHooks() {
+        let defaults = UserDefaults.standard
+        let previousLeaderboardChoice = defaults.object(forKey: "showInPublicLeaderboard")
+        defaults.removeObject(forKey: "showInPublicLeaderboard")
+        defer {
+            if let previousLeaderboardChoice {
+                defaults.set(previousLeaderboardChoice, forKey: "showInPublicLeaderboard")
+            } else {
+                defaults.removeObject(forKey: "showInPublicLeaderboard")
+            }
+        }
+
         let environment = AppConfig.collectorEnvironment(
             inheriting: [
                 "HOME": "/Users/test",
@@ -33,6 +44,7 @@ final class RuntimeDetectorTests: XCTestCase {
         XCTAssertNil(environment["OPENAI_API_KEY"])
         XCTAssertNil(environment["AWS_SECRET_ACCESS_KEY"])
         XCTAssertNil(environment["NODE_OPTIONS"])
+        XCTAssertEqual(environment["VIBE_USAGE_SHOW_IN_RANK"], "0")
     }
 
     func testReleaseServiceURLCannotBeRedirected() {

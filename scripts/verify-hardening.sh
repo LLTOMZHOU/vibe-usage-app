@@ -32,6 +32,7 @@ search_quiet() {
 ./scripts/check-version.sh
 plutil -lint VibeUsage/Info.plist >/dev/null
 node --check VibeUsage/Resources/vibe-usage-cli/bin/vibe-usage.js
+node --check VibeUsage/Resources/vibe-usage-cli/src/api.js
 node --check VibeUsage/Resources/vibe-usage-cli/src/sync.js
 
 if search_lines '@vibe-cafe/vibe-usage@latest|\["--yes"|\["x", packageSpecifier' \
@@ -55,5 +56,14 @@ fi
 search_quiet '6c72607286b125488003c741c280d4cce6263d1f' \
     VibeUsage/Resources/vibe-usage-cli/ORIGIN.md \
     || fail "vendored collector provenance is missing"
+
+search_quiet 'VIBE_USAGE_SHOW_IN_RANK' \
+    VibeUsage/Models/AppConfig.swift \
+    VibeUsage/Resources/vibe-usage-cli/src/sync.js \
+    || fail "public leaderboard privacy policy is not passed to the collector"
+
+search_quiet 'enforceShowInRank' \
+    VibeUsage/Resources/vibe-usage-cli/src/sync.js \
+    || fail "server leaderboard privacy is not enforced before sync"
 
 echo "Hardening invariants verified."

@@ -25,6 +25,8 @@ defaults, updates, or packaging, read:
   origin (localhost is debug-only).
 - Remote sync, project names, session metadata, and both credential-backed quota
   probes remain opt-in.
+- Public leaderboard visibility remains opt-in, and every upload must first
+  verify that VibeCafe accepted the app's explicit setting.
 - Do not restore a silent or automatic app-update path.
 - Do not merge, tag, publish, or release an automated upstream update.
 
@@ -40,6 +42,13 @@ defaults, updates, or packaging, read:
 - The collector is dependency-free ESM. Its import graph for `sync` is the
   runtime attack surface; review it as carefully as Swift code.
 - Remote update checks are a browser link to this fork's Releases page.
+
+## Product thesis
+
+Read `THESIS.md` before adding product behavior. This is a privacy-first product
+foundation, not a frozen patch set. Original features are welcome when they
+increase local usefulness, make consent more legible, or improve user ownership
+without weakening the security invariants above.
 
 ## Verification
 
