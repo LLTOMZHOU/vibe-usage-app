@@ -2,6 +2,26 @@ import AppKit
 import SwiftUI
 import Observation
 
+enum PopoverGeometry {
+    static func topLeftPoint(
+        buttonFrame: NSRect,
+        visibleFrame: NSRect,
+        panelWidth: CGFloat,
+        horizontalInset: CGFloat,
+        topGap: CGFloat
+    ) -> NSPoint {
+        var x = buttonFrame.maxX - panelWidth
+        x = max(visibleFrame.minX + horizontalInset,
+                min(x, visibleFrame.maxX - panelWidth - horizontalInset))
+        // Status-item windows are private AppKit implementation details. With
+        // separate menu bars they can report a Y origin above either display
+        // (observed as 1112 on 1080-point screens), especially after moving
+        // between displays. The selected display's usable top is the stable
+        // anchor and already accounts for that display's menu-bar behavior.
+        return NSPoint(x: x, y: visibleFrame.maxY - topGap)
+    }
+}
+
 /// SwiftUI view rendered inside the NSStatusItem button.
 /// Using NSHostingView for the status item content is the best-practice workaround
 /// for proper vertical centering of multi-line text — attributedTitle and
@@ -327,14 +347,16 @@ final class MenuBarController: NSObject {
         // Anchor the panel's right edge to the icon's right edge so a far-right icon
         // doesn't push the panel off-screen. Use setFrameTopLeftPoint so we don't
         // depend on the (possibly stale) height for the Y calculation.
-        var topLeftX = buttonFrame.maxX - width
-        let topLeftY = buttonFrame.minY - Self.panelTopGap
-
         if let screen = NSScreen.screens.first(where: { $0.frame.contains(buttonFrame.origin) }) ?? NSScreen.main {
-            let visible = screen.visibleFrame
-            topLeftX = max(visible.minX + 8, min(topLeftX, visible.maxX - width - 8))
+            let point = PopoverGeometry.topLeftPoint(
+                buttonFrame: buttonFrame,
+                visibleFrame: screen.visibleFrame,
+                panelWidth: width,
+                horizontalInset: 8,
+                topGap: Self.panelTopGap
+            )
+            panel.setFrameTopLeftPoint(point)
         }
-        panel.setFrameTopLeftPoint(NSPoint(x: topLeftX, y: topLeftY))
     }
 
     // MARK: - Animation
