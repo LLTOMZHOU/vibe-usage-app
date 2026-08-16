@@ -8,6 +8,8 @@ This fork starts from upstream app commit
 
 | Concern | Control in this fork |
 | --- | --- |
+| Account required to view local usage | The popover always opens the local dashboard. Sign-in lives only in Optional Cloud Sync settings. |
+| Refresh accidentally uploads telemetry | Local refresh invokes the separate `snapshot` command. Its module does not import cloud/upload code and its child environment never contains the VibeCafe key. |
 | Mutable npm `latest` executes every 30 minutes | Collector source is copied into the app resource bundle and invoked directly with Node/Bun. |
 | Cursor token and network access | Cursor parser is removed. |
 | Antigravity process token / local RPC | Antigravity parser is removed. |
@@ -25,15 +27,19 @@ This fork starts from upstream app commit
 
 ## Residual trust
 
-Token totals still come from local AI-tool logs and, after explicit consent,
-are uploaded to VibeCafe. The service controls storage and server-side cost
-calculation. The fork can set and verify the documented `showInRank` account
+Token totals come from local AI-tool logs. Local logs do not consistently carry
+authoritative provider prices, so the account-free dashboard marks cost as
+unavailable instead of reporting a false zero. After explicit consent, token
+data can be uploaded to VibeCafe, whose service controls storage and server-side
+cost calculation. The fork can set and verify the documented `showInRank` account
 setting before upload, but it cannot prove how VibeCafe implements deletion,
 retention, access control, or leaderboard filtering internally.
 
 The app is not sandboxed because it must read logs belonging to several tools.
 Bundling and parser removal reduce the code-execution and credential blast
-radius but do not make arbitrary local-file access impossible. Build from source
+radius but do not make arbitrary local-file access impossible. Some supported
+parsers use Node's read-only SQLite API or invoke `sqlite3`/`zstd` by argument
+array when necessary. Build from source
 if that remaining trust is unacceptable.
 
 This fork never edits Claude's `settings.json`, including the upstream legacy

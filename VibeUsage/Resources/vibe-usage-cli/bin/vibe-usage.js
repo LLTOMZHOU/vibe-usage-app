@@ -6,12 +6,21 @@
  */
 
 import '../src/security.js';
-import { runSync } from '../src/sync.js';
 
 const args = process.argv.slice(2);
-if (args.length !== 1 || args[0] !== 'sync') {
-  console.error('The bundled collector accepts only the sync command.');
-  process.exitCode = 2;
-} else {
+const [command, ...commandArgs] = args;
+if (command === 'sync' && commandArgs.length === 0) {
+  const { runSync } = await import('../src/sync.js');
   await runSync({ surface: 'mac-app' });
+} else if (command === 'snapshot') {
+  try {
+    const { runLocalSnapshot } = await import('../src/local-snapshot.js');
+    await runLocalSnapshot(commandArgs);
+  } catch (error) {
+    console.error(error.message);
+    process.exitCode = 2;
+  }
+} else {
+  console.error('The bundled collector accepts only sync or snapshot.');
+  process.exitCode = 2;
 }

@@ -12,6 +12,9 @@ Antigravity parser (which may inspect a running process and call a local RPC).
 It also enforces privacy choices supplied by the native app and an owner-only
 process umask. Before any upload, the fork applies the app's explicit public
 leaderboard choice through the settings API and reads it back; failure to
-confirm cancels the sync. The entrypoint accepts only `sync`; upstream setup, daemon,
+confirm cancels the sync. The fork also adds a `snapshot` command for the
+account-free dashboard. It reads parser output locally, preserves project and
+session details on-device, imports no upload client, and receives no API key.
+The entrypoint accepts only `sync` and `snapshot`; upstream setup, daemon,
 reset, summary, status, and skill-management commands are not bundled. Future
 updates must be reviewed and committed as source changes.

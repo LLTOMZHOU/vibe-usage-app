@@ -86,6 +86,24 @@ enum UsageQueryRange: Sendable {
         }
     }
 
+    /// Exact bounds passed to the bundled, network-free local snapshot command.
+    /// Custom ranges are inclusive in the UI, so the upper bound is midnight
+    /// immediately after the selected final day.
+    var localSnapshotArguments: [String] {
+        switch self {
+        case .days(let days):
+            return ["--days", String(days)]
+        case .from(let from):
+            return ["--from", Self.isoString(from)]
+        case .custom(let from, let to):
+            let calendar = Calendar.current
+            let lower = calendar.startOfDay(for: min(from, to))
+            let finalDay = calendar.startOfDay(for: max(from, to))
+            let upper = calendar.date(byAdding: .day, value: 1, to: finalDay) ?? finalDay
+            return ["--from", Self.isoString(lower), "--to", Self.isoString(upper)]
+        }
+    }
+
     private static func isoString(_ date: Date) -> String {
         let formatter = ISO8601DateFormatter()
         formatter.formatOptions = [.withInternetDateTime, .withFractionalSeconds]

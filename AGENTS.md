@@ -18,6 +18,10 @@ defaults, updates, or packaging, read:
 - Never execute npm/bun package names or mutable tags at runtime.
 - The native app may execute only the collector committed under
   `VibeUsage/Resources/vibe-usage-cli`.
+- The dashboard remains usable without configuration, sign-in, or network
+  access. Local refresh must use `snapshot`, never `sync` or `APIClient`.
+- The local snapshot import graph must not include upload/network modules, and
+  its child environment must never contain `VIBE_USAGE_API_KEY`.
 - Do not restore Cursor credential access or Antigravity process/RPC access.
 - Never persist `VIBE_USAGE_API_KEY` or the VibeCafe key in JSON, logs, tests,
   workflow output, or release notes.
@@ -37,10 +41,12 @@ defaults, updates, or packaging, read:
   metadata under Application Support with owner-only permissions.
 - `RuntimeDetector` finds Node or Bun and passes the copied collector entrypoint
   as a local file path.
+- `LocalUsageProvider` invokes the credential-free `snapshot` command and
+  decodes local buckets and sessions directly into the dashboard.
 - `SyncEngine` injects the Keychain secret and privacy policy into that one child
-  process.
-- The collector is dependency-free ESM. Its import graph for `sync` is the
-  runtime attack surface; review it as carefully as Swift code.
+  process only after optional cloud sync is enabled.
+- The collector is dependency-free ESM. Its separate `snapshot` and `sync`
+  import graphs are runtime attack surfaces; `snapshot` must remain network-free.
 - Remote update checks are a browser link to this fork's Releases page.
 
 ## Product thesis

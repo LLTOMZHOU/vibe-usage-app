@@ -22,22 +22,26 @@ struct DistributionChartsView: View {
             DonutCardView(
                 title: "终端分布",
                 icon: "desktopcomputer",
-                slices: aggregate(data, by: \.hostname)
+                slices: aggregate(data, by: \.hostname),
+                hasCostEstimates: appState.hasCostEstimates
             )
             DonutCardView(
                 title: "工具分布",
                 icon: "terminal",
-                slices: aggregate(data, by: \.source)
+                slices: aggregate(data, by: \.source),
+                hasCostEstimates: appState.hasCostEstimates
             )
             DonutCardView(
                 title: "模型分布",
                 icon: "cpu",
-                slices: aggregate(data, by: \.model)
+                slices: aggregate(data, by: \.model),
+                hasCostEstimates: appState.hasCostEstimates
             )
             DonutCardView(
                 title: "项目分布",
                 icon: "folder",
-                slices: aggregate(data, by: \.project)
+                slices: aggregate(data, by: \.project),
+                hasCostEstimates: appState.hasCostEstimates
             )
         }
         .animation(.easeInOut(duration: 0.28), value: data.count)
@@ -119,6 +123,7 @@ private struct DonutCardView: View {
     let title: String
     let icon: String
     let slices: [SliceData]
+    let hasCostEstimates: Bool
     @State private var mode: MetricMode = .tokens
 
     private var total: Double {
@@ -143,7 +148,7 @@ private struct DonutCardView: View {
                 }
                 .frame(minWidth: 0, maxWidth: .infinity, alignment: .leading)
                 Spacer()
-                MetricToggleView(mode: $mode)
+                MetricToggleView(mode: $mode, hasCostEstimates: hasCostEstimates)
                     .layoutPriority(1)
             }
 
@@ -215,11 +220,14 @@ private struct DonutCardView: View {
 
 private struct MetricToggleView: View {
     @Binding var mode: MetricMode
+    let hasCostEstimates: Bool
 
     var body: some View {
         HStack(spacing: 2) {
             toggleButton(.tokens)
-            toggleButton(.cost)
+            if hasCostEstimates {
+                toggleButton(.cost)
+            }
         }
         .padding(2)
         .background(Color(white: 0.16))

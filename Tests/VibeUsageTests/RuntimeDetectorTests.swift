@@ -9,6 +9,13 @@ final class RuntimeDetectorTests: XCTestCase {
         )
     }
 
+    func testLocalSnapshotCommandUsesOnlyAuditedEntrypoint() {
+        XCTAssertEqual(
+            RuntimeDetector.snapshotArguments(cliPath: "/App/cli/vibe-usage.js", range: .days(7)),
+            ["/App/cli/vibe-usage.js", "snapshot", "--days", "7"]
+        )
+    }
+
     func testMacAppIdentityUsesTheDisplayVersion() {
         XCTAssertEqual(AppConfig.cliIdentityEnvironment["VIBE_USAGE_SURFACE"], "mac-app")
         XCTAssertEqual(AppConfig.cliIdentityEnvironment["VIBE_USAGE_SURFACE_VERSION"], AppConfig.version)
@@ -45,6 +52,19 @@ final class RuntimeDetectorTests: XCTestCase {
         XCTAssertNil(environment["AWS_SECRET_ACCESS_KEY"])
         XCTAssertNil(environment["NODE_OPTIONS"])
         XCTAssertEqual(environment["VIBE_USAGE_SHOW_IN_RANK"], "0")
+    }
+
+    func testLocalCollectorEnvironmentNeverReceivesCloudCredential() {
+        let environment = AppConfig.localCollectorEnvironment(
+            inheriting: [
+                "HOME": "/Users/test",
+                "PATH": "/usr/bin",
+                "VIBE_USAGE_API_KEY": "ambient-secret",
+            ],
+            runtimeDirectory: "/opt/node/bin"
+        )
+
+        XCTAssertNil(environment["VIBE_USAGE_API_KEY"])
     }
 
     func testReleaseServiceURLCannotBeRedirected() {

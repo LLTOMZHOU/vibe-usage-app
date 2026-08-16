@@ -34,6 +34,7 @@ plutil -lint VibeUsage/Info.plist >/dev/null
 node --check VibeUsage/Resources/vibe-usage-cli/bin/vibe-usage.js
 node --check VibeUsage/Resources/vibe-usage-cli/src/api.js
 node --check VibeUsage/Resources/vibe-usage-cli/src/sync.js
+node --check VibeUsage/Resources/vibe-usage-cli/src/local-snapshot.js
 
 if search_lines '@vibe-cafe/vibe-usage@latest|\["--yes"|\["x", packageSpecifier' \
     VibeUsage/Services Tests; then
@@ -48,6 +49,20 @@ fi
 if search_lines 'parseCursor|parseAntigravity' VibeUsage/Resources/vibe-usage-cli/src/parsers/index.js; then
     fail "a prohibited parser is registered"
 fi
+
+if search_lines "node:(http|https|net|tls|dgram)|fetch[[:space:]]*\\(|WebSocket" \
+    VibeUsage/Resources/vibe-usage-cli/src/parsers; then
+    fail "a local parser gained network access"
+fi
+
+if search_lines "from './(api|sync|config|state)\\.js'" \
+    VibeUsage/Resources/vibe-usage-cli/src/local-snapshot.js; then
+    fail "the local snapshot imports cloud or upload code"
+fi
+
+search_quiet 'localCollectorEnvironment' \
+    VibeUsage/Services/LocalUsageProvider.swift \
+    || fail "the local dashboard no longer uses the credential-free environment"
 
 if search_lines 'SUFeedURL|SUPublicEDKey|SUEnableAutomaticChecks' VibeUsage/Info.plist; then
     fail "automatic remote update configuration returned"

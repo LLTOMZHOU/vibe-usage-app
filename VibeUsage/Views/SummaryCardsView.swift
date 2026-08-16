@@ -38,7 +38,11 @@ struct SummaryCardsView: View {
 
     var body: some View {
         HStack(alignment: .top, spacing: 8) {
-            StatCard(label: "预估费用", value: Formatters.formatCost(totalCost), color: Color(red: 0.2, green: 0.8, blue: 0.5))
+            StatCard(
+                label: appState.hasCostEstimates ? "预估费用" : "费用（本机无报价）",
+                value: appState.hasCostEstimates ? Formatters.formatCost(totalCost) : "—",
+                color: Color(red: 0.2, green: 0.8, blue: 0.5)
+            )
             StatCard(label: "总 Token", value: Formatters.formatNumber(totalTokens))
             StatCard(label: "缓存 Token", value: Formatters.formatNumber(totalCachedInputTokens))
             StatCard(label: "活跃时长", value: Formatters.formatDuration(totalActiveSeconds), color: Color(red: 0.38, green: 0.6, blue: 1.0))

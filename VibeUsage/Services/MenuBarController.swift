@@ -179,9 +179,9 @@ final class MenuBarController: NSObject {
     }
 
     private func menuBarLines() -> [String] {
-        guard appState.isConfigured, !appState.buckets.isEmpty else { return [] }
+        guard !appState.buckets.isEmpty else { return [] }
         var lines: [String] = []
-        if appState.showCostInMenuBar {
+        if appState.showCostInMenuBar && appState.hasCostEstimates {
             lines.append(Formatters.formatCost(appState.menuBarCost))
         }
         if appState.showTokensInMenuBar {

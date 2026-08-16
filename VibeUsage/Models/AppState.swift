@@ -82,6 +82,7 @@ final class AppState {
     var lastSyncTime: Date?
     var lastSyncMessage: String?
     private var lastFetchTime: Date?
+    var localDataError: String?
 
     // MARK: - Dashboard Data
     var buckets: [UsageBucket] = []
@@ -228,21 +229,32 @@ final class AppState {
         menuBarBuckets.reduce(0) { $0 + ($1.estimatedCost ?? 0) }
     }
 
+    var hasCostEstimates: Bool {
+        buckets.contains { $0.estimatedCost != nil }
+    }
+
     var menuBarTokens: Int {
         menuBarBuckets.reduce(0) { $0 + $1.computedTotal }
     }
     // MARK: - Services (initialized after launch)
-    private var syncScheduler: SyncScheduler?
+    private var localRefreshScheduler: SyncScheduler?
+    private var remoteSyncScheduler: SyncScheduler?
     private var rateLimitCoordinator: RateLimitCoordinator?
     private var isRateLimitPanelVisible = false
     private var config: VibeUsageConfig?
-    private let usageFetcher: (String, String, UsageQueryRange) async throws -> UsageResponse
+    private let usageFetcher: (UsageQueryRange) async throws -> UsageResponse
+
+    init(initialConfig: VibeUsageConfig? = nil) {
+        self.config = initialConfig
+        self.isConfigured = initialConfig?.apiKey != nil
+        self.usageFetcher = { range in
+            try await LocalUsageProvider.shared.fetch(range: range)
+        }
+    }
 
     init(
         initialConfig: VibeUsageConfig? = nil,
-        usageFetcher: @escaping (String, String, UsageQueryRange) async throws -> UsageResponse = { apiUrl, apiKey, range in
-            try await APIClient(baseURL: apiUrl, apiKey: apiKey).fetchUsage(range: range)
-        }
+        usageFetcher: @escaping (UsageQueryRange) async throws -> UsageResponse
     ) {
         self.config = initialConfig
         self.isConfigured = initialConfig?.apiKey != nil
@@ -272,8 +284,10 @@ final class AppState {
         let runtime = RuntimeDetector.detect()
         self.runtimeAvailable = runtime != nil
 
+        startLocalRefreshScheduler()
+
         if isConfigured && remoteSyncEnabled {
-            startScheduler()
+            startRemoteSyncScheduler()
         }
 
         // Rate limits are independent of configuration — both Codex and Claude
@@ -315,14 +329,32 @@ final class AppState {
 
     func setRemoteSyncEnabled(_ enabled: Bool) async {
         guard remoteSyncEnabled != enabled else { return }
+        guard !enabled || isConfigured else {
+            syncStatus = .error("请先连接 VibeCafe")
+            return
+        }
         remoteSyncEnabled = enabled
         if enabled, isConfigured {
-            startScheduler()
+            startRemoteSyncScheduler()
         } else {
-            syncScheduler?.stop()
-            syncScheduler = nil
+            remoteSyncScheduler?.stop()
+            remoteSyncScheduler = nil
             syncStatus = .idle
         }
+    }
+
+    /// Disconnecting cloud leaves local dashboard history and local refreshes
+    /// untouched. It removes the Keychain credential and disables uploads.
+    func disconnectCloud() {
+        ConfigManager.clear()
+        remoteSyncEnabled = false
+        remoteSyncScheduler?.stop()
+        remoteSyncScheduler = nil
+        config = nil
+        isConfigured = false
+        syncStatus = .idle
+        lastSyncTime = nil
+        lastSyncMessage = nil
     }
 
     /// The hardened fork owns this server setting while it syncs. Changing it
@@ -339,6 +371,10 @@ final class AppState {
     // MARK: - Sync
 
     func triggerSync() async {
+        guard isConfigured else {
+            syncStatus = .error("请先连接 VibeCafe")
+            return
+        }
         guard remoteSyncEnabled else {
             syncStatus = .error("请先在设置中确认隐私选项并开启同步")
             return
@@ -369,8 +405,6 @@ final class AppState {
     // MARK: - Data Fetching
 
     func fetchUsageData() async {
-        guard let config, let apiKey = config.apiKey else { return }
-
         usageFetchGeneration &+= 1
         let generation = usageFetchGeneration
         let queryRange = currentQueryRange
@@ -385,25 +419,29 @@ final class AppState {
             }
         }
 
-        let apiUrl = config.apiUrl ?? AppConfig.defaultApiUrl
-
         do {
-            let response = try await usageFetcher(apiUrl, apiKey, queryRange)
+            let response = try await usageFetcher(queryRange)
             guard generation == usageFetchGeneration else { return }
             withAnimation(.easeInOut(duration: 0.25)) {
                 buckets = response.buckets
                 sessions = response.sessions ?? []
                 hasAnyData = response.hasAnyData
+                localDataError = nil
+                runtimeAvailable = true
             }
         } catch {
             guard generation == usageFetchGeneration else { return }
-            // Silently fail — dashboard shows stale data or empty state
+            localDataError = error.localizedDescription
+            if let localError = error as? LocalUsageProvider.LocalUsageError,
+               case .noRuntime = localError {
+                runtimeAvailable = false
+            }
             print("Failed to fetch usage data: \(error)")
         }
     }
 
     /// Fetch dashboard data unless we already fetched within the last 60s.
-    /// Used by popover open to avoid hammering /api/usage on rapid open/close.
+    /// Used by popover open to avoid reparsing local logs on rapid open/close.
     func fetchUsageDataIfNeeded() async {
         // Opening the panel during the eager launch fetch must not start the
         // same request again. Explicit range changes call fetchUsageData()
@@ -506,17 +544,21 @@ final class AppState {
         coord.panelVisibilityChanged(visible: isRateLimitPanelVisible)
     }
 
-    private func startScheduler() {
-        guard syncScheduler == nil else { return }
-        syncScheduler = SyncScheduler(interval: 1800) { [weak self] in
+    private func startLocalRefreshScheduler() {
+        guard localRefreshScheduler == nil else { return }
+        localRefreshScheduler = SyncScheduler(interval: 1800) { [weak self] in
+            await self?.fetchUsageData()
+        }
+        localRefreshScheduler?.start()
+        Task { await fetchUsageData() }
+    }
+
+    private func startRemoteSyncScheduler() {
+        guard remoteSyncScheduler == nil else { return }
+        remoteSyncScheduler = SyncScheduler(interval: 1800) { [weak self] in
             await self?.triggerSync()
         }
-        syncScheduler?.start()
-
-        // Fetch the dashboard immediately so the menu bar populates without waiting for
-        // the CLI subprocess (which can take 5-30s, or hang if Node isn't installed).
-        Task { await fetchUsageData() }
-        // Run the full sync (CLI upload + fetch) in parallel as the background pipeline.
+        remoteSyncScheduler?.start()
         Task { await triggerSync() }
     }
 }

@@ -8,6 +8,7 @@ import { createSyncClient, forBatch } from './client-meta.js';
 import { parsers } from './parsers/index.js';
 import { aggregateToBuckets } from './parsers/aggregate.js';
 import { normalizeParserResult } from './parsers/contract.js';
+import { mapWithConcurrency } from './concurrency.js';
 import { success, failure, arrow, link, dim } from './output.js';
 
 const BATCH_SIZE = 100;
@@ -48,20 +49,7 @@ export function reaggregateHiddenProjectBuckets(buckets) {
 export const PARSER_CONCURRENCY = 4;
 
 // Run `fn` over `items` with at most `limit` in flight, preserving order.
-export async function mapWithConcurrency(items, limit, fn) {
-  const results = new Array(items.length);
-  let nextIndex = 0;
-  const workerCount = Math.max(1, Math.min(limit, items.length));
-  const workers = Array.from({ length: workerCount }, async () => {
-    while (true) {
-      const index = nextIndex++;
-      if (index >= items.length) return;
-      results[index] = await fn(items[index], index);
-    }
-  });
-  await Promise.all(workers);
-  return results;
-}
+export { mapWithConcurrency } from './concurrency.js';
 
 export async function runSync({
   throws = false,
