@@ -36,7 +36,7 @@ if [[ "$CONFIG_VERSION" != "$PLIST_SHORT" ]]; then
 fi
 
 if ! [[ "$PLIST_BUILD" =~ ^[0-9]+$ ]]; then
-    fail "CFBundleVersion ($PLIST_BUILD) must be a plain integer — Sparkle compares it numerically"
+    fail "CFBundleVersion ($PLIST_BUILD) must be a plain integer"
 fi
 
 # If we're in a git checkout, make sure the build number advanced past the last
@@ -48,7 +48,7 @@ if git -C "$PROJECT_DIR" rev-parse --git-dir >/dev/null 2>&1; then
             | /usr/libexec/PlistBuddy -c "Print :CFBundleVersion" /dev/stdin 2>/dev/null || true)
         if [[ -n "$LAST_BUILD" && "$LAST_BUILD" =~ ^[0-9]+$ ]]; then
             if (( PLIST_BUILD <= LAST_BUILD )); then
-                fail "CFBundleVersion ($PLIST_BUILD) must be greater than last tag $LAST_TAG ($LAST_BUILD) — Sparkle won't detect the update otherwise"
+                fail "CFBundleVersion ($PLIST_BUILD) must be greater than last tag $LAST_TAG ($LAST_BUILD)"
             fi
         fi
     fi

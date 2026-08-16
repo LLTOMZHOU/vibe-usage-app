@@ -145,8 +145,13 @@ enum ClaudeUsageProbe {
         let home = fileManager.homeDirectoryForCurrentUser
         append(home.appendingPathComponent(".local/bin/claude"), .cli, "Claude Code CLI")
         append(home.appendingPathComponent(".claude/local/claude"), .cli, "Claude Code CLI")
-        for path in ["/opt/homebrew/bin/claude", "/usr/local/bin/claude"] {
-            append(URL(fileURLWithPath: path), .cli, "Claude Code CLI")
+        // Absolute system paths belong to the real host only. Tests and other
+        // callers that inject a different home directory must not accidentally
+        // discover binaries installed on the machine running the test.
+        if home == FileManager.default.homeDirectoryForCurrentUser {
+            for path in ["/opt/homebrew/bin/claude", "/usr/local/bin/claude"] {
+                append(URL(fileURLWithPath: path), .cli, "Claude Code CLI")
+            }
         }
 
         for bundled in desktopBundledBinaries(fileManager: fileManager, home: home) {
@@ -325,33 +330,20 @@ enum ClaudeUsageProbe {
         throw process.isRunning ? ProbeError.timedOut : ProbeError.noResponse
     }
 
-    /// The app inherits whatever launched it. Two classes of variables have to
-    /// be scrubbed before handing the environment to the child:
-    ///
-    /// - `CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC` suppresses the usage fetch
-    ///   entirely, so the probe would answer with `rate_limits: null` and we'd
-    ///   silently degrade to cached data forever.
-    /// - The session markers Claude Code exports into its own child processes
-    ///   would make the probe look like a nested session.
-    ///
-    /// `CLAUDE_CONFIG_DIR` is deliberately preserved: users who relocate
-    /// `~/.claude` need the probe to read the same profile they use.
+    /// Pass only basic process context and the user's selected Claude profile.
+    /// Ambient API keys, cloud credentials, runtime hooks, and nested-session
+    /// markers are intentionally absent.
     private static func childEnvironment() -> [String: String] {
-        var env = ProcessInfo.processInfo.environment
-        for key in [
-            "CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC",
-            "CLAUDECODE",
-            "CLAUDE_CODE_ENTRYPOINT",
-            "CLAUDE_CODE_SESSION_ID",
-            "CLAUDE_CODE_CHILD_SESSION",
-            "CLAUDE_PID",
-        ] {
-            env.removeValue(forKey: key)
-        }
+        let inherited = ProcessInfo.processInfo.environment
+        let allowed = Set([
+            "HOME", "USER", "LOGNAME", "TMPDIR", "LANG", "LC_ALL", "SHELL",
+            "CLAUDE_CONFIG_DIR",
+        ])
+        var env = inherited.filter { allowed.contains($0.key) }
         // A GUI app launched from Finder gets a minimal PATH; the binary itself
         // is self-contained but may shell out for git metadata.
         let base = "/usr/local/bin:/opt/homebrew/bin:/usr/bin:/bin:/usr/sbin:/sbin"
-        env["PATH"] = env["PATH"].map { "\($0):\(base)" } ?? base
+        env["PATH"] = inherited["PATH"].map { "\($0):\(base)" } ?? base
         return env
     }
 

@@ -1,57 +1,88 @@
-# Vibe Usage
+# Vibe Usage Hardened
 
-macOS 应用，自动追踪 AI 编程工具的 Token 用量和费用。App 常驻菜单栏，可选显示在 Dock / Cmd-Tab；数据同步到 [vibecafe.ai/usage](https://vibecafe.ai/usage)。
+A privacy- and supply-chain-hardened public fork of
+[`vibe-cafe/vibe-usage-app`](https://github.com/vibe-cafe/vibe-usage-app), a
+macOS menu-bar dashboard for AI coding-tool token usage and cost.
 
-<table align="center">
-  <tr>
-    <td><img src="docs/demo-1.png" alt="订阅配额 + 用量统计"></td>
-    <td><img src="docs/demo-2.png" alt="趋势 + 分布图表"></td>
-  </tr>
-</table>
+This fork preserves the dashboard and 30-minute background sync, but the first
+sync is paused until you explicitly enable it in Settings.
 
-## 下载
+## What changed
 
-从 [Releases](https://github.com/vibe-cafe/vibe-usage-app/releases/latest) 下载 `VibeUsage.dmg`，打开后将 `Vibe Usage.app` 拖入 Applications 文件夹。
+- Bundles reviewed collector source instead of executing an npm `latest` tag.
+- Stores the VibeCafe API key in macOS Keychain.
+- Uses a random device alias instead of your Mac hostname.
+- Defaults remote sync, project names, session statistics, and Codex/Claude
+  credential-backed quota probes to off.
+- Removes the Cursor credential/network parser and Antigravity process/RPC
+  parser.
+- Restricts release credentials to `https://vibecafe.ai`.
+- Removes silent in-app updates; update checks open this fork's release page.
+- Provides public CI packaging, hashes, a security policy, and an upstream
+  review policy.
 
-## 配置
+See [the hardening design](docs/HARDENING.md) for the threat model and residual
+trust. These changes improve the client; they do not audit or control VibeCafe's
+server. In particular, review the website's public-leaderboard setting before
+enabling sync.
 
-1. 打开 Vibe Usage，点击「登录并链接数据」
-2. 浏览器自动打开 vibecafe.ai 审批页面 — 登录后确认验证码与 app 一致
-3. 点击「确认链接」 — app 自动拿到 Key 并开始同步
+## Download and install
 
-## 功能
-
-- 菜单栏常驻；可选显示在 Dock / Cmd-Tab，切换到 Vibe Usage 时自动打开用量面板
-- 后台每 30 分钟自动同步数据，也可手动「更新数据」
-- 弹出窗口查看费用、总 Token、缓存 Token、趋势图表
-- **订阅配额监控**：可分别显示 Codex / Claude 的 5 小时 / 7 天 token 配额，悬停查看消耗 vs 时间对比。两者都复用本机已登录的官方客户端凭据，零消耗、无需额外权限、不修改你的配置。Codex 直接读取官方用量接口；Claude 通过本机已登录的 Claude Code 读取，**同时支持 Claude Desktop 与命令行**。离线时自动回退本地缓存，并标注数据时间
-- 支持今天 / 24H / 7D / 30D / 90D / 自定义日期，以及终端 / 工具 / 模型 / 项目筛选
-- 可在菜单栏显示今日费用和 Token 数
-- 可在设置中显示或隐藏 Dock 图标
-- 可在设置中分别显示或隐藏 Codex / Claude 订阅配额
-- 支持开机自启动
-
-## 系统要求
-
-- macOS 14 (Sonoma) 或更高版本
-- [Node.js](https://nodejs.org) (v20+) 或 [Bun](https://bun.sh)
-
-## 从源码构建
+Download the latest `VibeUsage.dmg` and `SHA256SUMS` from
+[this fork's Releases](https://github.com/LLTOMZHOU/vibe-usage-app/releases).
+Verify the hash before opening it:
 
 ```bash
-git clone https://github.com/vibe-cafe/vibe-usage-app.git
-cd vibe-usage-app
-./scripts/build-app.sh
-open "dist/Vibe Usage.app"
+shasum -a 256 ~/Downloads/VibeUsage.dmg
 ```
 
-维护者请参阅[发布与更换发布 Mac 指南](docs/RELEASING.md)，尤其是在另一台 Mac 上生成 Sparkle 更新之前迁移并校验当前签名密钥。
+The initial personal release is ad-hoc signed because upstream's Apple signing
+credentials do not—and must not—transfer to a fork. macOS will therefore show a
+Gatekeeper warning. After verifying the published SHA-256 against the release,
+open System Settings → Privacy & Security and choose **Open Anyway**. A
+warning-free public build requires the fork owner to add their own Apple
+Developer ID and notarization profile.
 
-## 相关项目
+## First-run privacy setup
 
-- [@vibe-cafe/vibe-usage](https://github.com/vibe-cafe/vibe-usage) — 命令行同步工具
-- [vibecafe.ai/usage](https://vibecafe.ai/usage) — Web 仪表盘
+1. Open the app and link your VibeCafe account in the browser.
+2. On VibeCafe's website, disable public leaderboard visibility if desired.
+3. Open app Settings → Privacy.
+4. Leave project-name and session-statistics uploads off unless you need those
+   dashboard dimensions.
+5. Enable **允许同步到 VibeCafe** only after reviewing those choices.
+6. Enable Codex or Claude subscription quota cards separately if you accept the
+   credential access described beside each toggle.
+
+With the default privacy settings, the app uploads tool/model identifiers,
+30-minute time buckets, and aggregate token counts under a random device alias.
+It does not upload raw prompts or responses.
+
+## Build from source
+
+Requirements: macOS 14+, Xcode/Swift 6, and Node.js 20+ or Bun.
+
+```bash
+git clone https://github.com/LLTOMZHOU/vibe-usage-app.git
+cd vibe-usage-app
+./scripts/verify-hardening.sh
+node --test collector-tests/*.test.mjs
+swift test
+./scripts/build-app.sh --package
+open "dist/Vibe Usage Hardened.app"
+```
+
+`dist/VibeUsage.dmg` and `dist/VibeUsage.zip` are ad-hoc-signed personal
+artifacts. For Developer-ID signing and notarization, set
+`VIBE_USAGE_SIGN_IDENTITY` and `VIBE_USAGE_NOTARIZE_PROFILE`; see
+[the hardening design](docs/HARDENING.md).
+
+## Upstream updates
+
+The original project remains configured as a fetch-only `upstream` remote.
+Scheduled updates are review proposals, never automatic merges or releases.
+See [the upstream policy](docs/UPSTREAM_POLICY.md).
 
 ## License
 
-MIT
+MIT. See [LICENSE](LICENSE).

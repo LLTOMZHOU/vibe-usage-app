@@ -14,7 +14,6 @@ final class ActivationCoordinator {
     static let shared = ActivationCoordinator()
 
     private var settingsVisible = false
-    private var updateModalVisible = false
 
     /// Policy last applied by `reconcile()`. Policy and Dock icon are only
     /// touched on actual transitions — reassigning `applicationIconImage`
@@ -29,14 +28,6 @@ final class ActivationCoordinator {
     /// to lower the popup's window level while Settings is visible, so standard
     /// z-ordering lets Settings come to the front on click.
     var onSettingsVisibilityChange: ((Bool) -> Void)?
-
-    /// Invoked around a Sparkle update session. `true` = update UI about to
-    /// show — the "checking" progress window, the update-available window, or
-    /// an alert (lower the popup so Sparkle's normal-level windows aren't
-    /// buried under the `.popUpMenu` panel); `false` = session finished
-    /// (restore). We deliberately do NOT close the popup — it stays open
-    /// behind/around the update dialog, just no longer on top of it.
-    var onUpdateModalVisibilityChange: ((Bool) -> Void)?
 
     private init() {}
 
@@ -64,18 +55,13 @@ final class ActivationCoordinator {
         if changed { onSettingsVisibilityChange?(false) }
     }
 
-    func updateModalVisibilityDidChange(_ visible: Bool) {
-        updateModalVisible = visible
-        onUpdateModalVisibilityChange?(visible)
-    }
-
     var canPresentDashboardForAppActivation: Bool {
         let showInDock = UserDefaults.standard.object(forKey: "showInDock") as? Bool ?? true
-        return showInDock && !settingsVisible && !updateModalVisible
+        return showInDock && !settingsVisible
     }
 
     var canDismissDashboardForAppDeactivation: Bool {
-        !settingsVisible && !updateModalVisible
+        !settingsVisible
     }
 
     /// Applies the user's Dock visibility preference: at launch (before any

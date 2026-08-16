@@ -158,6 +158,9 @@ final class AppState {
     var runtimeAvailable: Bool = true
 
     // MARK: - Rate Limits (subscription quota for Claude + Codex)
+    // Tests and dependency-injected previews may use the model before
+    // `initialize()`. Production initialization replaces this with the
+    // persisted, hardened default (off).
     var codexRateLimitEnabled: Bool = true {
         didSet { UserDefaults.standard.set(codexRateLimitEnabled, forKey: "codexRateLimitEnabled") }
     }
@@ -191,6 +194,16 @@ final class AppState {
             UserDefaults.standard.set(showInDock, forKey: "showInDock")
             ActivationCoordinator.shared.applyDockPreference()
         }
+    }
+
+    var uploadProjectNames: Bool = false {
+        didSet { UserDefaults.standard.set(uploadProjectNames, forKey: "uploadProjectNames") }
+    }
+    var uploadSessionMetadata: Bool = false {
+        didSet { UserDefaults.standard.set(uploadSessionMetadata, forKey: "uploadSessionMetadata") }
+    }
+    var remoteSyncEnabled: Bool = false {
+        didSet { UserDefaults.standard.set(remoteSyncEnabled, forKey: "remoteSyncEnabled") }
     }
 
     // MARK: - Menu Bar Stats (matches current time range, no filters)
@@ -240,13 +253,13 @@ final class AppState {
         self.showCostInMenuBar = UserDefaults.standard.object(forKey: "showCostInMenuBar") as? Bool ?? true
         self.showTokensInMenuBar = UserDefaults.standard.object(forKey: "showTokensInMenuBar") as? Bool ?? false
         self.showInDock = UserDefaults.standard.object(forKey: "showInDock") as? Bool ?? true
-        let legacyRateLimitEnabled = UserDefaults.standard.object(forKey: "rateLimitMonitoringEnabled") as? Bool
-        self.codexRateLimitEnabled = UserDefaults.standard.object(forKey: "codexRateLimitEnabled") as? Bool ?? legacyRateLimitEnabled ?? true
-        self.claudeRateLimitEnabled = Self.resolveClaudeRateLimitPreference()
+        self.applyPrivacyDefaultsOnce()
+        self.codexRateLimitEnabled = UserDefaults.standard.bool(forKey: "codexRateLimitEnabled")
+        self.claudeRateLimitEnabled = UserDefaults.standard.bool(forKey: "claudeRateLimitEnabled")
+        self.uploadProjectNames = UserDefaults.standard.bool(forKey: "uploadProjectNames")
+        self.uploadSessionMetadata = UserDefaults.standard.bool(forKey: "uploadSessionMetadata")
+        self.remoteSyncEnabled = UserDefaults.standard.bool(forKey: "remoteSyncEnabled")
         self.claudeUsesDesktopBundledCLI = ClaudeUsageProbe.primarySourceKind() == .desktop
-
-        // Hand back the `statusLine.command` edit the pre-probe releases made.
-        LegacyStatuslineRetirement.run()
 
         let loadedConfig = ConfigManager.load()
         self.config = loadedConfig
@@ -255,7 +268,7 @@ final class AppState {
         let runtime = RuntimeDetector.detect()
         self.runtimeAvailable = runtime != nil
 
-        if isConfigured {
+        if isConfigured && remoteSyncEnabled {
             startScheduler()
         }
 
@@ -271,34 +284,49 @@ final class AppState {
     /// have edited my Claude settings". Now that showing the card costs the
     /// user nothing, that ambiguity is resolved once in favour of on — matching
     /// the Codex default — and the answer is respected from then on.
-    private static func resolveClaudeRateLimitPreference() -> Bool {
+    private func applyPrivacyDefaultsOnce() {
         let defaults = UserDefaults.standard
-        let migrationKey = "claudeRateLimitProbeMigrationDone"
-        guard defaults.bool(forKey: migrationKey) else {
-            defaults.set(true, forKey: migrationKey)
-            defaults.set(true, forKey: "claudeRateLimitEnabled")
-            return true
-        }
-        return defaults.object(forKey: "claudeRateLimitEnabled") as? Bool ?? true
+        let migrationKey = "hardenedPrivacyDefaultsApplied"
+        guard !defaults.bool(forKey: migrationKey) else { return }
+        defaults.set(false, forKey: "codexRateLimitEnabled")
+        defaults.set(false, forKey: "claudeRateLimitEnabled")
+        defaults.set(false, forKey: "uploadProjectNames")
+        defaults.set(false, forKey: "uploadSessionMetadata")
+        defaults.set(false, forKey: "remoteSyncEnabled")
+        defaults.set(true, forKey: migrationKey)
     }
 
     /// Save config to disk and start scheduler.
     func configure(apiKey: String, apiUrl: String = AppConfig.defaultApiUrl) {
         var cfg = ConfigManager.load() ?? VibeUsageConfig()
         cfg.apiKey = apiKey
-        cfg.apiUrl = apiUrl
+        cfg.apiUrl = AppConfig.validatedServiceURL(apiUrl)
+        cfg.hostname = AppConfig.deviceAlias
         ConfigManager.save(cfg)
 
         self.config = ConfigManager.load()
         self.isConfigured = self.config?.apiKey != nil
-        if isConfigured {
+    }
+
+    func setRemoteSyncEnabled(_ enabled: Bool) async {
+        guard remoteSyncEnabled != enabled else { return }
+        remoteSyncEnabled = enabled
+        if enabled, isConfigured {
             startScheduler()
+        } else {
+            syncScheduler?.stop()
+            syncScheduler = nil
+            syncStatus = .idle
         }
     }
 
     // MARK: - Sync
 
     func triggerSync() async {
+        guard remoteSyncEnabled else {
+            syncStatus = .error("请先在设置中确认隐私选项并开启同步")
+            return
+        }
         guard syncStatus != .syncing else { return }
         syncStatus = .syncing
 
@@ -463,6 +491,7 @@ final class AppState {
     }
 
     private func startScheduler() {
+        guard syncScheduler == nil else { return }
         syncScheduler = SyncScheduler(interval: 1800) { [weak self] in
             await self?.triggerSync()
         }

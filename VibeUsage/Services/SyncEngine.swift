@@ -1,6 +1,6 @@
 import Foundation
 
-/// Executes `npx @vibe-cafe/vibe-usage sync` (or bunx) and parses the result
+/// Executes the audited CLI source bundled inside the app.
 actor SyncEngine {
     static let shared = SyncEngine()
 
@@ -48,16 +48,11 @@ actor SyncEngine {
             process.arguments = runtime.syncArguments
             debugLog("[SyncEngine] CMD: \(runtime.executablePath) \(runtime.syncArguments.joined(separator: " "))")
 
-            // Inherit environment for PATH, HOME, etc.
-            var env = ProcessInfo.processInfo.environment
-            // Ensure the runtime's directory is in PATH
+            // Start from a narrow allowlist. In particular, do not expose
+            // ambient API keys, cloud credentials, NODE_OPTIONS, or other
+            // executable runtime hooks to the collector child.
             let runtimeDir = (runtime.executablePath as NSString).deletingLastPathComponent
-            if let existingPath = env["PATH"] {
-                env["PATH"] = "\(runtimeDir):\(existingPath)"
-            } else {
-                env["PATH"] = runtimeDir
-            }
-            env.merge(AppConfig.cliIdentityEnvironment) { _, appValue in appValue }
+            var env = AppConfig.collectorEnvironment(runtimeDirectory: runtimeDir)
 
             // In dev mode, tell CLI to use config.dev.json
             #if DEBUG

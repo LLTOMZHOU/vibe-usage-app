@@ -1,74 +1,34 @@
-# Releasing Vibe Usage
+# Releasing the hardened fork
 
-## Release-machine credentials
-
-Each Mac used for a production release must have all three of these items:
-
-1. A valid `Developer ID Application: Yin Ming (D33463FWDZ)` identity, including its private key.
-2. A working `notarytool` Keychain profile named `VibeUsage`.
-3. The current Sparkle Ed25519 private key in the login Keychain.
-
-Verify the Apple credentials with:
+## Personal / CI package
 
 ```bash
-security find-identity -v -p codesigning
-xcrun notarytool history --keychain-profile VibeUsage
+./scripts/verify-hardening.sh
+node --test collector-tests/*.test.mjs
+swift test
+./scripts/build-app.sh --package
+shasum -a 256 dist/VibeUsage.dmg dist/VibeUsage.zip > dist/SHA256SUMS
 ```
 
-## Moving releases to another Mac
+This output is ad-hoc signed and is appropriate for a verified personal build.
+It will trigger Gatekeeper after an Internet download.
 
-The Sparkle key was rotated for `v0.5.4`. Every later release must use the
-private key matching the current `SUPublicEDKey` in `VibeUsage/Info.plist`.
-An older release Mac may still contain the retired key, so do not generate an
-appcast there until the current key has been imported and verified.
+## Notarized public package
 
-On a Mac that already has the current key, export it to a secure location:
+Use Apple credentials owned by this fork's publisher:
 
 ```bash
-.build/artifacts/sparkle/Sparkle/bin/generate_keys \
-  -x /secure/path/vibe-usage-sparkle-private-key
-```
-
-Transfer the file using an encrypted channel or encrypted removable storage.
-The exported file is equivalent to a password: never commit it, attach it to an
-issue, or leave an unencrypted copy in cloud storage.
-
-On the destination Mac, pull the latest `main` branch, then import the key:
-
-```bash
-.build/artifacts/sparkle/Sparkle/bin/generate_keys \
-  -f /secure/path/vibe-usage-sparkle-private-key
-```
-
-If the import reports a conflict, first back up the destination Mac's old key,
-then remove its existing **Private key for signing Sparkle updates** item from
-Keychain Access and retry the import.
-
-Verify that the imported key matches the repository:
-
-```bash
-.build/artifacts/sparkle/Sparkle/bin/generate_keys -p
-/usr/libexec/PlistBuddy -c 'Print :SUPublicEDKey' VibeUsage/Info.plist
-```
-
-The two public keys must be identical before running
-`scripts/generate-appcast.sh`. If they differ, stop: publishing an appcast with
-the wrong private key will break automatic updates.
-
-After the import succeeds, delete the transfer copy or move it into a durable,
-encrypted backup. Keep at least one recoverable backup so a lost release Mac
-does not require another signing-key rotation.
-
-## Production release
-
-Once all credential checks pass, follow the release sequence documented in
-`AGENTS.md`:
-
-```bash
-./scripts/check-version.sh
+VIBE_USAGE_SIGN_IDENTITY='Developer ID Application: Your Name (TEAMID)' \
+VIBE_USAGE_NOTARIZE_PROFILE='VibeUsageHardened' \
 ./scripts/build-app.sh --notarize
-./scripts/generate-appcast.sh
 ```
 
-Publish `dist/VibeUsage.dmg`, `dist/VibeUsage.zip`, and `dist/appcast.xml`, then
-verify that all three assets are present on the GitHub release.
+Never import, request, rotate, or reuse the upstream maintainer's Developer ID
+or Sparkle key. This fork does not use Sparkle.
+
+## Publish
+
+Create a tag only after review and CI pass. Upload `VibeUsage.dmg`,
+`VibeUsage.zip`, and `SHA256SUMS`, then verify the release page lists all three
+and that downloaded hashes match. Automated upstream-review tasks may prepare a
+draft pull request but may not perform this step.

@@ -1,0 +1,32 @@
+{
+  "name": "vibe-usage-hardened-bundled",
+  "version": "0.10.11-hardened.1",
+  "description": "Audited, bundled collector for Vibe Usage Hardened",
+  "type": "module",
+  "scripts": {
+    "test": "node --test"
+  },
+  "bin": {
+    "vibe-usage": "bin/vibe-usage.js"
+  },
+  "files": [
+    "bin/",
+    "src/"
+  ],
+  "engines": {
+    "node": ">=20"
+  },
+  "keywords": [
+    "ai",
+    "coding",
+    "usage",
+    "tokens",
+    "claude",
+    "codex",
+    "grok",
+    "gemini"
+  ],
+  "dependencies": {},
+  "private": true,
+  "license": "MIT"
+}

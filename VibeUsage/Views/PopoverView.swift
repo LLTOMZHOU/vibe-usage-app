@@ -133,7 +133,7 @@ struct PopoverView: View {
         defer { deviceFlowState = .idle }
 
         let baseURL = AppConfig.defaultApiUrl
-        let hostname = Host.current().localizedName?.replacingOccurrences(of: ".local", with: "")
+        let hostname = AppConfig.deviceAlias
         let device: DeviceCodeResponse
         do {
             device = try await requestDeviceCode(baseURL: baseURL, clientName: "Vibe Usage.app", hostname: hostname)
@@ -162,7 +162,7 @@ struct PopoverView: View {
             }
             if let apiKey = res.apiKey {
                 pendingUserCode = nil
-                appState.configure(apiKey: apiKey, apiUrl: res.apiUrl ?? baseURL)
+                appState.configure(apiKey: apiKey, apiUrl: AppConfig.validatedServiceURL(res.apiUrl ?? baseURL))
                 await appState.fetchUsageData()
                 return
             }

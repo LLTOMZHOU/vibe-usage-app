@@ -88,6 +88,42 @@ struct SettingsView: View {
                 Text("同步")
             }
 
+            Section {
+                Toggle("允许同步到 VibeCafe", isOn: Binding(
+                    get: { appState.remoteSyncEnabled },
+                    set: { newValue in
+                        Task { await appState.setRemoteSyncEnabled(newValue) }
+                    }
+                ))
+                .tint(.green)
+
+                Toggle("上传项目名称", isOn: Binding(
+                    get: { appState.uploadProjectNames },
+                    set: { appState.uploadProjectNames = $0 }
+                ))
+                .tint(.green)
+
+                Toggle("上传会话统计", isOn: Binding(
+                    get: { appState.uploadSessionMetadata },
+                    set: { appState.uploadSessionMetadata = $0 }
+                ))
+                .tint(.green)
+            } header: {
+                Text("隐私")
+            } footer: {
+                VStack(alignment: .leading, spacing: 6) {
+                    Text("同步默认关闭。开启后只上传半小时聚合的 Token 数；项目名称和会话时间、时长、消息数均需另行开启。设备使用随机别名，不上传电脑名称。")
+                    Text("VibeCafe 的公开排行榜开关属于服务器账户设置，本应用无法代你关闭。请先在网页设置中关闭公开展示，再开启同步。")
+                    Button("打开 VibeCafe 用量设置") {
+                        if let url = URL(string: "\(AppConfig.defaultApiUrl)/usage") {
+                            NSWorkspace.shared.open(url)
+                        }
+                    }
+                    .buttonStyle(.link)
+                }
+                .font(.caption)
+            }
+
             // Subscription quota monitoring
             Section {
                 Toggle("显示 Codex 订阅配额", isOn: Binding(
@@ -97,6 +133,9 @@ struct SettingsView: View {
                     }
                 ))
                 .tint(.green)
+                Text("开启后会读取 Codex 的本机登录凭据，并联系 OpenAI 用量接口。")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
 
                 Toggle(isOn: Binding(
                     get: { appState.claudeRateLimitEnabled },
@@ -117,6 +156,9 @@ struct SettingsView: View {
                     }
                 }
                 .tint(.green)
+                Text("开启后会启动本机 Claude Code 读取配额；该进程会使用自己的登录凭据。")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
             } header: {
                 Text("订阅配额")
             }
@@ -168,7 +210,7 @@ struct SettingsView: View {
                         .foregroundStyle(.secondary)
                 }
 
-                Button("检查更新") {
+                Button("查看发布版本") {
                     updaterViewModel.checkForUpdates()
                 }
                 .disabled(!updaterViewModel.canCheckForUpdates)
@@ -194,7 +236,7 @@ struct SettingsView: View {
             }
         }
         .formStyle(.grouped)
-        .frame(width: 420, height: 460)
+        .frame(width: 440, height: 620)
         .onAppear {
             loadSettings()
         }
@@ -235,7 +277,7 @@ struct SettingsView: View {
         defer { isRelinking = false }
 
         let baseURL = AppConfig.defaultApiUrl
-        let hostname = Host.current().localizedName?.replacingOccurrences(of: ".local", with: "")
+        let hostname = AppConfig.deviceAlias
         let device: DeviceCodeResponse
         do {
             device = try await requestDeviceCode(baseURL: baseURL, clientName: "Vibe Usage.app", hostname: hostname)
@@ -263,7 +305,7 @@ struct SettingsView: View {
                 continue
             }
             if let apiKey = res.apiKey {
-                appState.configure(apiKey: apiKey, apiUrl: res.apiUrl ?? baseURL)
+                appState.configure(apiKey: apiKey, apiUrl: AppConfig.validatedServiceURL(res.apiUrl ?? baseURL))
                 await appState.fetchUsageData()
                 relinkUserCode = nil
                 loadSettings()
@@ -302,9 +344,7 @@ struct SettingsView: View {
     }
 
     private func resetConfig() {
-        let configPath = FileManager.default.homeDirectoryForCurrentUser
-            .appendingPathComponent(".vibe-usage/\(AppConfig.configFileName)")
-        try? FileManager.default.removeItem(at: configPath)
+        ConfigManager.clear()
 
         appState.isConfigured = false
         appState.buckets = []

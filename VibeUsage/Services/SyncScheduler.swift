@@ -1,11 +1,16 @@
 import Foundation
 
 /// Schedules periodic sync at a fixed interval (default 30 minutes)
-final class SyncScheduler: Sendable {
+@MainActor
+final class SyncScheduler {
     private let interval: TimeInterval
     private let action: @Sendable () async -> Void
-    private let timer = DispatchSource.makeTimerSource(queue: DispatchQueue.global(qos: .utility))
-    private nonisolated(unsafe) var started = false
+    // Dispatch sources are thread-safe but were not Sendable in Swift 6.0.
+    // All lifecycle mutations remain isolated to this class's main actor.
+    private nonisolated(unsafe) let timer = DispatchSource.makeTimerSource(
+        queue: DispatchQueue.global(qos: .utility)
+    )
+    private var started = false
 
     /// - Parameters:
     ///   - interval: Seconds between syncs (default 1800 = 30 minutes)
