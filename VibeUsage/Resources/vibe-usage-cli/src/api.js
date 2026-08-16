@@ -282,12 +282,57 @@ export function getJson(apiUrl, apiKey, path, { timeoutMs = 15_000 } = {}) {
 }
 
 /**
+ * Authenticated PATCH for account-level Vibe Usage settings.
+ * Resolves after any 2xx response; callers must GET the setting again when a
+ * privacy-sensitive change needs positive confirmation.
+ */
+export function patchSettings(apiUrl, apiKey, settings, { timeoutMs = 10_000 } = {}) {
+  return new Promise((resolve, reject) => {
+    const url = serviceURL('/api/usage/settings', apiUrl);
+    const raw = Buffer.from(JSON.stringify(settings));
+
+    const req = https.request(url, {
+      method: 'PATCH',
+      timeout: timeoutMs,
+      headers: {
+        'Authorization': `Bearer ${apiKey}`,
+        'Content-Type': 'application/json',
+        'Content-Length': raw.length,
+      },
+    }, (res) => {
+      let data = '';
+      res.on('data', chunk => { data += chunk; });
+      res.on('end', () => {
+        if (res.statusCode === 401) {
+          const err = new Error('UNAUTHORIZED');
+          err.statusCode = 401;
+          reject(err);
+          return;
+        }
+        if (res.statusCode < 200 || res.statusCode >= 300) {
+          const err = new Error(`HTTP ${res.statusCode}: ${data.slice(0, 200)}`);
+          err.statusCode = res.statusCode;
+          reject(err);
+          return;
+        }
+        resolve();
+      });
+    });
+
+    req.on('error', reject);
+    req.on('timeout', () => { req.destroy(); reject(new Error(`Request timed out (${timeoutMs}ms)`)); });
+    req.write(raw);
+    req.end();
+  });
+}
+
+/**
  * GET user settings from the vibecafe API.
  * Returns null after transient failures are exhausted. A 401 remains distinct
  * so callers can surface invalid credentials instead of calling it an outage.
  * @param {string} apiUrl
  * @param {string} apiKey
- * @returns {Promise<{uploadProject: boolean} | null>}
+ * @returns {Promise<{uploadProject: boolean, showInRank: boolean} | null>}
  */
 export async function fetchSettings(apiUrl, apiKey, retry = {}) {
   const wait = retry.sleep ?? sleep;
@@ -313,8 +358,42 @@ export async function fetchSettings(apiUrl, apiKey, retry = {}) {
 
 async function fetchSettingsOnce(apiUrl, apiKey) {
   const settings = await getJson(apiUrl, apiKey, '/api/usage/settings', { timeoutMs: 10_000 });
-  if (typeof settings?.uploadProject !== 'boolean') {
+  if (
+    typeof settings?.uploadProject !== 'boolean'
+    || typeof settings?.showInRank !== 'boolean'
+  ) {
     throw new Error('Invalid settings response');
+  }
+  return settings;
+}
+
+export function desiredShowInRank(environmentValue) {
+  return environmentValue?.trim() === '1';
+}
+
+/**
+ * Make the app's explicit leaderboard choice authoritative before upload.
+ * A PATCH is not enough: re-read and compare so a rejected or ignored update
+ * can never be mistaken for a private account.
+ */
+export async function enforceShowInRank(apiUrl, apiKey, desired, dependencies = {}) {
+  const fetch = dependencies.fetchSettings ?? fetchSettings;
+  const patch = dependencies.patchSettings ?? patchSettings;
+  const retry = dependencies.retry ?? {};
+  let settings = await fetch(apiUrl, apiKey, retry);
+  if (!settings) {
+    const error = new Error('PRIVACY_SETTING_UNVERIFIED');
+    error.code = 'PRIVACY_SETTING_UNVERIFIED';
+    throw error;
+  }
+  if (settings.showInRank === desired) return settings;
+
+  await patch(apiUrl, apiKey, { showInRank: desired });
+  settings = await fetch(apiUrl, apiKey, retry);
+  if (!settings || settings.showInRank !== desired) {
+    const error = new Error('PRIVACY_SETTING_UNVERIFIED');
+    error.code = 'PRIVACY_SETTING_UNVERIFIED';
+    throw error;
   }
   return settings;
 }

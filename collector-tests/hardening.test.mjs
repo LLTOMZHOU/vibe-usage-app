@@ -46,3 +46,36 @@ test('client metadata omits runtime fingerprint fields', async () => {
   assert.equal('platform' in client, false);
   assert.equal(client.hostname, 'Mac-private');
 });
+
+test('public leaderboard is opt-in and server changes are verified', async () => {
+  const { desiredShowInRank, enforceShowInRank } = await import(
+    new URL('src/api.js', collectorRoot)
+  );
+
+  assert.equal(desiredShowInRank(undefined), false);
+  assert.equal(desiredShowInRank('0'), false);
+  assert.equal(desiredShowInRank('1'), true);
+
+  const patches = [];
+  const responses = [
+    { uploadProject: false, showInRank: true },
+    { uploadProject: false, showInRank: false },
+  ];
+  const settings = await enforceShowInRank('https://vibecafe.ai', 'test-key', false, {
+    fetchSettings: async () => responses.shift(),
+    patchSettings: async (_apiUrl, _apiKey, patch) => { patches.push(patch); },
+  });
+  assert.deepEqual(patches, [{ showInRank: false }]);
+  assert.equal(settings.showInRank, false);
+});
+
+test('sync fails closed when the server does not confirm leaderboard privacy', async () => {
+  const { enforceShowInRank } = await import(new URL('src/api.js', collectorRoot));
+  await assert.rejects(
+    enforceShowInRank('https://vibecafe.ai', 'test-key', false, {
+      fetchSettings: async () => ({ uploadProject: false, showInRank: true }),
+      patchSettings: async () => {},
+    }),
+    /PRIVACY_SETTING_UNVERIFIED/,
+  );
+});

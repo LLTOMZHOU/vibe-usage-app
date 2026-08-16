@@ -4,8 +4,10 @@ A privacy- and supply-chain-hardened public fork of
 [`vibe-cafe/vibe-usage-app`](https://github.com/vibe-cafe/vibe-usage-app), a
 macOS menu-bar dashboard for AI coding-tool token usage and cost.
 
-This fork preserves the dashboard and 30-minute background sync, but the first
-sync is paused until you explicitly enable it in Settings.
+**Private by default, useful by choice.** This fork preserves the dashboard and
+30-minute background sync, but the first sync is paused until you explicitly
+enable it in Settings. Security is the starting point for an independent
+product, not the end state; see [the product thesis](THESIS.md).
 
 ## What changed
 
@@ -14,6 +16,8 @@ sync is paused until you explicitly enable it in Settings.
 - Uses a random device alias instead of your Mac hostname.
 - Defaults remote sync, project names, session statistics, and Codex/Claude
   credential-backed quota probes to off.
+- Defaults public leaderboard visibility off and verifies the server accepted
+  that choice before every upload.
 - Removes the Cursor credential/network parser and Antigravity process/RPC
   parser.
 - Restricts release credentials to `https://vibecafe.ai`.
@@ -22,9 +26,8 @@ sync is paused until you explicitly enable it in Settings.
   review policy.
 
 See [the hardening design](docs/HARDENING.md) for the threat model and residual
-trust. These changes improve the client; they do not audit or control VibeCafe's
-server. In particular, review the website's public-leaderboard setting before
-enabling sync.
+trust. These changes improve the client; they do not audit VibeCafe's private
+server implementation.
 
 ## Download and install
 
@@ -46,17 +49,17 @@ Developer ID and notarization profile.
 ## First-run privacy setup
 
 1. Open the app and link your VibeCafe account in the browser.
-2. On VibeCafe's website, disable public leaderboard visibility if desired.
-3. Open app Settings → Privacy.
-4. Leave project-name and session-statistics uploads off unless you need those
-   dashboard dimensions.
-5. Enable **允许同步到 VibeCafe** only after reviewing those choices.
-6. Enable Codex or Claude subscription quota cards separately if you accept the
+2. Open app Settings → Privacy.
+3. Leave public leaderboard visibility, project-name upload, and
+   session-statistics upload off unless you specifically want them.
+4. Enable **允许同步到 VibeCafe** only after reviewing those choices.
+5. Enable Codex or Claude subscription quota cards separately if you accept the
    credential access described beside each toggle.
 
 With the default privacy settings, the app uploads tool/model identifiers,
 30-minute time buckets, and aggregate token counts under a random device alias.
-It does not upload raw prompts or responses.
+It does not upload raw prompts or responses, and it verifies that VibeCafe has
+excluded the account from its public leaderboard before uploading.
 
 ## Build from source
 

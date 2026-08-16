@@ -108,14 +108,22 @@ struct SettingsView: View {
                     set: { appState.uploadSessionMetadata = $0 }
                 ))
                 .tint(.green)
+
+                Toggle("显示在公开排行榜", isOn: Binding(
+                    get: { appState.showInPublicLeaderboard },
+                    set: { newValue in
+                        Task { await appState.setShowInPublicLeaderboard(newValue) }
+                    }
+                ))
+                .tint(.orange)
             } header: {
                 Text("隐私")
             } footer: {
                 VStack(alignment: .leading, spacing: 6) {
                     Text("同步默认关闭。开启后只上传半小时聚合的 Token 数；项目名称和会话时间、时长、消息数均需另行开启。设备使用随机别名，不上传电脑名称。")
-                    Text("VibeCafe 的公开排行榜开关属于服务器账户设置，本应用无法代你关闭。请先在网页设置中关闭公开展示，再开启同步。")
+                    Text("公开排行榜默认关闭。每次上传前，本应用都会向 VibeCafe 验证服务器已采用这里的选择；无法确认时同步会安全取消。只有你明确开启后才会公开展示。")
                     Button("打开 VibeCafe 用量设置") {
-                        if let url = URL(string: "\(AppConfig.defaultApiUrl)/usage") {
+                        if let url = URL(string: "\(AppConfig.defaultApiUrl)/usage/setup") {
                             NSWorkspace.shared.open(url)
                         }
                     }

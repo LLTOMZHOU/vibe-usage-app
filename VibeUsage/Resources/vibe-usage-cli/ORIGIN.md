@@ -10,6 +10,8 @@ mutable npm `latest` tag at runtime. The fork removes the Cursor parser (which
 reads a local Cursor auth token and contacts Cursor's service) and the
 Antigravity parser (which may inspect a running process and call a local RPC).
 It also enforces privacy choices supplied by the native app and an owner-only
-process umask. The entrypoint accepts only `sync`; upstream setup, daemon,
+process umask. Before any upload, the fork applies the app's explicit public
+leaderboard choice through the settings API and reads it back; failure to
+confirm cancels the sync. The entrypoint accepts only `sync`; upstream setup, daemon,
 reset, summary, status, and skill-management commands are not bundled. Future
 updates must be reviewed and committed as source changes.

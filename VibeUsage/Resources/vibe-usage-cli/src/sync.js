@@ -3,12 +3,12 @@ import {
   loadState, saveState, pruneState,
   bucketKey, bucketHash, sessionKey, sessionHash,
 } from './state.js';
-import { ingest, fetchSettings } from './api.js';
+import { desiredShowInRank, enforceShowInRank, ingest } from './api.js';
 import { createSyncClient, forBatch } from './client-meta.js';
 import { parsers } from './parsers/index.js';
 import { aggregateToBuckets } from './parsers/aggregate.js';
 import { normalizeParserResult } from './parsers/contract.js';
-import { success, failure, warn, arrow, link, dim } from './output.js';
+import { success, failure, arrow, link, dim } from './output.js';
 
 const BATCH_SIZE = 100;
 const SESSION_BATCH_SIZE = 500;
@@ -26,13 +26,6 @@ export function resolveUploadProjectSetting(settings) {
     throw error;
   }
   return settings.uploadProject;
-}
-
-export function resolveCachedUploadProjectSetting(config, apiUrl) {
-  if (config?.lastUploadProjectApiUrl !== apiUrl) return undefined;
-  return typeof config.lastUploadProject === 'boolean'
-    ? config.lastUploadProject
-    : undefined;
 }
 
 export function resolveCodexExtraHome(configured, temporary) {
@@ -89,10 +82,8 @@ export async function runSync({
     saveConfig(config);
   }
 
-  // Privacy is a required input, not an optional hint. If the settings API is
-  // unavailable, treating it as `false` changes every project-bearing item's
-  // incremental identity to `unknown` and can trigger a full-history upload.
-  // Resolve it before parsing or loading upload state so failure is a true
+  // Server privacy is a required precondition, not an optional hint. Resolve
+  // and verify it before parsing or loading upload state so failure is a true
   // no-op: no data upload and no state mutation.
   const configuredApiUrl = config.apiUrl || 'https://vibecafe.ai';
   const apiUrl = process.env.VIBE_USAGE_SURFACE === 'mac-app'
@@ -112,41 +103,35 @@ export async function runSync({
     }
     if (!approved) throw new Error('UNAPPROVED_API_ORIGIN');
   }
-  let uploadProject;
-  const localUploadProject = process.env.VIBE_USAGE_UPLOAD_PROJECT?.trim();
-  if (localUploadProject === '0') {
-    uploadProject = false;
-  } else try {
-    const settings = await fetchSettings(apiUrl, config.apiKey);
-    uploadProject = resolveUploadProjectSetting(settings);
-    // Scope the cached privacy choice to the server that returned it. Reusing
-    // the value after `apiUrl` changes could expose project names to a
-    // different server during its first settings outage.
-    if (
-      config.lastUploadProject !== uploadProject
-      || config.lastUploadProjectApiUrl !== apiUrl
-    ) {
-      config.lastUploadProject = uploadProject;
-      config.lastUploadProjectApiUrl = apiUrl;
-      saveConfig(config);
-    }
+  let settings;
+  try {
+    settings = await enforceShowInRank(
+      apiUrl,
+      config.apiKey,
+      desiredShowInRank(process.env.VIBE_USAGE_SHOW_IN_RANK),
+    );
   } catch (err) {
     if (err.message === 'UNAUTHORIZED') {
       console.error(failure('API Key 无效，请运行 `npx @vibe-cafe/vibe-usage init` 重新配置。'));
       if (throws) throw err;
       process.exit(1);
     }
-    // Settings endpoint unreachable (not auth): degrade to the last confirmed
-    // choice for this same server rather than hard-aborting every upload.
-    const cachedUploadProject = resolveCachedUploadProjectSetting(config, apiUrl);
-    if (typeof cachedUploadProject === 'boolean') {
-      uploadProject = cachedUploadProject;
-      if (!quiet) console.log(warn('设置接口不可用，沿用上次的项目名设置。'));
-    } else {
-      console.error(failure('暂时无法读取上传设置，本次同步已安全取消（未上传数据）。请稍后重试。'));
-      if (throws) throw err;
-      process.exit(1);
-    }
+    console.error(failure('无法确认排行榜隐私设置，本次同步已安全取消（未上传数据）。请稍后重试。'));
+    if (throws) throw err;
+    process.exit(1);
+  }
+
+  const localUploadProject = process.env.VIBE_USAGE_UPLOAD_PROJECT?.trim();
+  const uploadProject = localUploadProject === '0'
+    ? false
+    : resolveUploadProjectSetting(settings);
+  if (
+    config.lastUploadProject !== uploadProject
+    || config.lastUploadProjectApiUrl !== apiUrl
+  ) {
+    config.lastUploadProject = uploadProject;
+    config.lastUploadProjectApiUrl = apiUrl;
+    saveConfig(config);
   }
 
   let allBuckets = [];
