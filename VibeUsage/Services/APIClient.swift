@@ -58,10 +58,10 @@ struct APIClient: Sendable {
 
         var errorDescription: String? {
             switch self {
-            case .invalidURL: "URL 无效"
-            case .invalidResponse: "服务器响应异常"
-            case .unauthorized: "API Key 无效"
-            case .httpError(let code): "HTTP 错误 \(code)"
+            case .invalidURL: AppStrings.text("URL 无效", "Invalid URL")
+            case .invalidResponse: AppStrings.text("服务器响应异常", "Unexpected server response")
+            case .unauthorized: AppStrings.text("API Key 无效", "Invalid API key")
+            case .httpError(let code): AppStrings.text("HTTP 错误 \(code)", "HTTP error \(code)")
             }
         }
     }
@@ -145,10 +145,10 @@ enum DeviceFlowError: LocalizedError {
 
     var errorDescription: String? {
         switch self {
-        case .denied: "你拒绝了链接请求。"
-        case .expired: "验证码已过期，请重新登录。"
-        case .network(let msg): "网络错误：\(msg)"
-        case .server(let msg): "服务端错误：\(msg)"
+        case .denied: AppStrings.text("你拒绝了链接请求。", "You declined the connection request.")
+        case .expired: AppStrings.text("验证码已过期，请重新登录。", "The code expired. Please sign in again.")
+        case .network(let msg): AppStrings.text("网络错误：\(msg)", "Network error: \(msg)")
+        case .server(let msg): AppStrings.text("服务端错误：\(msg)", "Server error: \(msg)")
         }
     }
 }

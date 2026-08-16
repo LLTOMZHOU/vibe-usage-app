@@ -179,7 +179,7 @@ struct BarChartView: View {
         VStack(spacing: 0) {
             // Header
             HStack {
-                Text(isHourly ? "每小时趋势" : "每日趋势")
+                Text(isHourly ? AppStrings.text("每小时趋势", "Hourly trend") : AppStrings.text("每日趋势", "Daily trend"))
                     .font(.system(size: 13, weight: .medium))
                     .foregroundStyle(Color(white: 0.63))
                     .lineLimit(1)
@@ -188,7 +188,7 @@ struct BarChartView: View {
                 HStack(spacing: 2) {
                     ForEach(ChartMode.allCases.filter { $0 != .cost || state.hasCostEstimates }, id: \.self) { mode in
                         Button(action: { state.chartMode = mode }) {
-                            Text(mode.rawValue)
+                            Text(mode.label)
                                 .font(.system(size: 11, weight: state.chartMode == mode ? .medium : .regular))
                                 .lineLimit(1)
                                 .minimumScaleFactor(0.8)
@@ -427,25 +427,25 @@ private struct ChartContent: View {
 
             switch chartMode {
             case .token:
-                Text("总 Token: \(Formatters.formatNumber(bar.total))")
+                Text(AppStrings.text("总 Token: \(Formatters.formatNumber(bar.total))", "Total tokens: \(Formatters.formatNumber(bar.total))"))
                     .foregroundStyle(Color(white: 0.8))
                 HStack(spacing: 8) {
-                    Text("输入: \(Formatters.formatNumber(bar.input))")
+                    Text(AppStrings.text("输入: \(Formatters.formatNumber(bar.input))", "Input: \(Formatters.formatNumber(bar.input))"))
                         .foregroundStyle(Color(white: 0.5))
-                    Text("输出: \(Formatters.formatNumber(bar.output))")
+                    Text(AppStrings.text("输出: \(Formatters.formatNumber(bar.output))", "Output: \(Formatters.formatNumber(bar.output))"))
                         .foregroundStyle(Color(white: 0.5))
                 }
                 if bar.cached > 0 {
-                    Text("缓存: \(Formatters.formatNumber(bar.cached))")
+                    Text(AppStrings.text("缓存: \(Formatters.formatNumber(bar.cached))", "Cached: \(Formatters.formatNumber(bar.cached))"))
                         .foregroundStyle(Color(white: 0.45))
                 }
-                Text("费用: \(Formatters.formatCost(bar.cost))")
+                Text(AppStrings.text("费用: \(Formatters.formatCost(bar.cost))", "Cost: \(Formatters.formatCost(bar.cost))"))
                     .foregroundStyle(Color(red: 0.2, green: 0.8, blue: 0.5))
             case .cost:
-                Text("费用: \(Formatters.formatCost(bar.cost))")
+                Text(AppStrings.text("费用: \(Formatters.formatCost(bar.cost))", "Cost: \(Formatters.formatCost(bar.cost))"))
                     .foregroundStyle(Color(red: 0.2, green: 0.8, blue: 0.5))
             case .activeTime:
-                Text("活跃时长: \(Formatters.formatDuration(Int(bar.activeMinutes * 60)))")
+                Text(AppStrings.text("活跃时长: \(Formatters.formatDuration(Int(bar.activeMinutes * 60)))", "Active time: \(Formatters.formatDuration(Int(bar.activeMinutes * 60)))"))
                     .foregroundStyle(Color(red: 0.38, green: 0.6, blue: 1.0))
             }
         }

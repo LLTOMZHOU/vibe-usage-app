@@ -138,7 +138,7 @@ enum ClaudeUsageProbe {
             append(
                 URL(fileURLWithPath: (override as NSString).expandingTildeInPath),
                 .override,
-                "自定义路径"
+                AppStrings.text("自定义路径", "Custom path")
             )
         }
 
@@ -196,14 +196,14 @@ enum ClaudeUsageProbe {
                 out.append(Binary(
                     url: binary,
                     kind: .desktop,
-                    label: "Claude Desktop 内置 \(version.lastPathComponent)"
+                    label: AppStrings.text("Claude Desktop 内置 \(version.lastPathComponent)", "Claude Desktop bundled \(version.lastPathComponent)")
                 ))
             }
         }
 
         let legacy = URL(fileURLWithPath: "/Applications/Claude.app/Contents/Resources/bin/claude")
         if fileManager.isExecutableFile(atPath: legacy.path) {
-            out.append(Binary(url: legacy, kind: .desktop, label: "Claude Desktop 内置"))
+            out.append(Binary(url: legacy, kind: .desktop, label: AppStrings.text("Claude Desktop 内置", "Claude Desktop bundled")))
         }
         return out
     }

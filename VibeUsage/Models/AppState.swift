@@ -13,6 +13,14 @@ enum ChartMode: String, CaseIterable {
     case token = "Token"
     case cost = "\u{8D39}\u{7528}"
     case activeTime = "\u{6D3B}\u{8DC3}"
+
+    var label: String {
+        switch self {
+        case .token: "Token"
+        case .cost: AppStrings.text("费用", "Cost")
+        case .activeTime: AppStrings.text("活跃", "Active")
+        }
+    }
 }
 
 enum TimeRange: String, CaseIterable {
@@ -330,7 +338,7 @@ final class AppState {
     func setRemoteSyncEnabled(_ enabled: Bool) async {
         guard remoteSyncEnabled != enabled else { return }
         guard !enabled || isConfigured else {
-            syncStatus = .error("请先连接 VibeCafe")
+            syncStatus = .error(AppStrings.text("请先连接 VibeCafe", "Connect VibeCafe first"))
             return
         }
         remoteSyncEnabled = enabled
@@ -372,11 +380,11 @@ final class AppState {
 
     func triggerSync() async {
         guard isConfigured else {
-            syncStatus = .error("请先连接 VibeCafe")
+            syncStatus = .error(AppStrings.text("请先连接 VibeCafe", "Connect VibeCafe first"))
             return
         }
         guard remoteSyncEnabled else {
-            syncStatus = .error("请先在设置中确认隐私选项并开启同步")
+            syncStatus = .error(AppStrings.text("请先在设置中确认隐私选项并开启同步", "Review the privacy options in Settings and enable sync first"))
             return
         }
         guard syncStatus != .syncing else { return }

@@ -1,7 +1,7 @@
 import Foundation
 
 enum AppConfig {
-    static let version = "0.5.7.4"
+    static let version = "0.5.7.5"
 
     /// This fork keeps credentials and upload state separate from the upstream
     /// app so installing either build cannot silently grant the other access.

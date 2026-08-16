@@ -42,13 +42,17 @@ enum Formatters {
         return dateString
     }
 
-    /// Format relative time: "刚刚", "3 分钟前", "1 小时前"
-    static func formatRelativeTime(_ date: Date, relativeTo now: Date = Date()) -> String {
+    /// Format relative time using the current macOS language.
+    static func formatRelativeTime(
+        _ date: Date,
+        relativeTo now: Date = Date(),
+        languageIdentifier: String? = nil
+    ) -> String {
         let interval = now.timeIntervalSince(date)
-        if interval < 60 { return "刚刚" }
-        if interval < 3600 { return "\(Int(interval / 60)) 分钟前" }
-        if interval < 86400 { return "\(Int(interval / 3600)) 小时前" }
-        return "\(Int(interval / 86400)) 天前"
+        if interval < 60 { return AppStrings.text("刚刚", "just now", languageIdentifier: languageIdentifier) }
+        if interval < 3600 { return AppStrings.text("\(Int(interval / 60)) 分钟前", "\(Int(interval / 60)) min ago", languageIdentifier: languageIdentifier) }
+        if interval < 86400 { return AppStrings.text("\(Int(interval / 3600)) 小时前", "\(Int(interval / 3600)) hr ago", languageIdentifier: languageIdentifier) }
+        return AppStrings.text("\(Int(interval / 86400)) 天前", "\(Int(interval / 86400)) days ago", languageIdentifier: languageIdentifier)
     }
 
     /// Format hour key for chart axis: "yyyy-MM-ddTHH" (UTC) → local "15:00"
@@ -88,10 +92,10 @@ enum Formatters {
         return formatter.date(from: key)
     }
 
-    /// Format the gap between now and a future date: "12m", "2h 14m", "4d 18h", "已重置"
+    /// Format the gap between now and a future date: "12m", "2h 14m", "4d 18h", or a localized reset state.
     static func formatTimeUntil(_ date: Date) -> String {
         let interval = Int(date.timeIntervalSinceNow)
-        if interval <= 0 { return "已重置" }
+        if interval <= 0 { return AppStrings.text("已重置", "reset") }
         return formatDuration(interval)
     }
 }
