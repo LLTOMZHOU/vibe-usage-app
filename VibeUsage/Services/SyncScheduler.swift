@@ -5,7 +5,11 @@ import Foundation
 final class SyncScheduler {
     private let interval: TimeInterval
     private let action: @Sendable () async -> Void
-    private let timer = DispatchSource.makeTimerSource(queue: DispatchQueue.global(qos: .utility))
+    // Dispatch sources are thread-safe but were not Sendable in Swift 6.0.
+    // All lifecycle mutations remain isolated to this class's main actor.
+    private nonisolated(unsafe) let timer = DispatchSource.makeTimerSource(
+        queue: DispatchQueue.global(qos: .utility)
+    )
     private var started = false
 
     /// - Parameters:
