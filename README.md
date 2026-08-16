@@ -4,14 +4,19 @@ A privacy- and supply-chain-hardened public fork of
 [`vibe-cafe/vibe-usage-app`](https://github.com/vibe-cafe/vibe-usage-app), a
 macOS menu-bar dashboard for AI coding-tool token usage and cost.
 
-**Private by default, useful by choice.** This fork preserves the dashboard and
-30-minute background sync, but the first sync is paused until you explicitly
-enable it in Settings. Security is the starting point for an independent
-product, not the end state; see [the product thesis](THESIS.md).
+**Private by default, useful without an account.** The dashboard reads supported
+AI-tool logs on your Mac and refreshes locally every 30 minutes. VibeCafe login
+and upload are separate, optional features hidden behind Settings. Security is
+the starting point for an independent product, not the end state; see
+[the product thesis](THESIS.md).
 
 ## What changed
 
 - Bundles reviewed collector source instead of executing an npm `latest` tag.
+- Shows the full local dashboard on first launch with no sign-in or network
+  connection, including source, model, project, token, cache, and activity data.
+- Runs local refresh through a network-free command that never receives the
+  VibeCafe API key; the refresh button cannot trigger an upload.
 - Stores the VibeCafe API key in macOS Keychain.
 - Uses a random device alias instead of your Mac hostname.
 - Defaults remote sync, project names, session statistics, and Codex/Claude
@@ -46,20 +51,22 @@ open System Settings → Privacy & Security and choose **Open Anyway**. A
 warning-free public build requires the fork owner to add their own Apple
 Developer ID and notarization profile.
 
-## First-run privacy setup
+## First run
 
-1. Open the app and link your VibeCafe account in the browser.
-2. Open app Settings → Privacy.
-3. Leave public leaderboard visibility, project-name upload, and
-   session-statistics upload off unless you specifically want them.
-4. Enable **允许同步到 VibeCafe** only after reviewing those choices.
-5. Enable Codex or Claude subscription quota cards separately if you accept the
-   credential access described beside each toggle.
+Open the app. That is enough: no account setup is required. The dashboard reads
+local logs and keeps project names and session activity on your Mac. Node.js 20+
+or Bun is required to run the bundled, dependency-free parser.
 
-With the default privacy settings, the app uploads tool/model identifiers,
-30-minute time buckets, and aggregate token counts under a random device alias.
-It does not upload raw prompts or responses, and it verifies that VibeCafe has
-excluded the account from its public leaderboard before uploading.
+Local logs generally contain token counts but not authoritative provider
+pricing, so this release shows cost as unavailable rather than inventing a
+misleading `$0`. Token, cache, project, model, tool, and activity views remain
+fully local.
+
+If you later want VibeCafe sync, open Settings → Optional Cloud Sync, connect an
+account, review each privacy switch, and then explicitly enable
+**允许同步到 VibeCafe**. With project names, session statistics, and leaderboard
+visibility left off, uploads contain tool/model identifiers, 30-minute token
+buckets, and a random device alias. Raw prompts and responses are not uploaded.
 
 ## Build from source
 

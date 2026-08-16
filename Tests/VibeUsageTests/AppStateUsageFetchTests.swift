@@ -35,8 +35,7 @@ struct AppStateUsageFetchTests {
     func passivePopoverRefreshDoesNotDuplicateInflightLaunchFetch() async {
         let stub = UsageFetchStub()
         let state = AppState(
-            initialConfig: VibeUsageConfig(apiKey: "test-key", apiUrl: "https://example.test"),
-            usageFetcher: { _, _, range in
+            usageFetcher: { range in
                 try await stub.fetch(range)
             }
         )
@@ -60,8 +59,7 @@ struct AppStateUsageFetchTests {
     func olderResponseCannotOverwriteNewerRange() async {
         let stub = UsageFetchStub()
         let state = AppState(
-            initialConfig: VibeUsageConfig(apiKey: "test-key", apiUrl: "https://example.test"),
-            usageFetcher: { _, _, range in
+            usageFetcher: { range in
                 try await stub.fetch(range)
             }
         )
@@ -102,8 +100,7 @@ struct AppStateUsageFetchTests {
     func staleCompletionDoesNotEndLatestLoadingState() async {
         let stub = UsageFetchStub()
         let state = AppState(
-            initialConfig: VibeUsageConfig(apiKey: "test-key", apiUrl: "https://example.test"),
-            usageFetcher: { _, _, range in
+            usageFetcher: { range in
                 try await stub.fetch(range)
             }
         )

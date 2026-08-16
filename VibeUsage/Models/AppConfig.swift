@@ -1,7 +1,7 @@
 import Foundation
 
 enum AppConfig {
-    static let version = "0.5.7.2"
+    static let version = "0.5.7.3"
 
     /// This fork keeps credentials and upload state separate from the upstream
     /// app so installing either build cannot silently grant the other access.
@@ -34,7 +34,8 @@ enum AppConfig {
 
     static func collectorEnvironment(
         inheriting base: [String: String] = ProcessInfo.processInfo.environment,
-        runtimeDirectory: String
+        runtimeDirectory: String,
+        includeCloudCredentials: Bool = true
     ) -> [String: String] {
         var environment = base.filter { forwardedChildEnvironmentKeys.contains($0.key) }
         let inheritedPath = base["PATH"].map { ":\($0)" } ?? ""
@@ -47,9 +48,23 @@ enum AppConfig {
         environment["VIBE_USAGE_UPLOAD_PROJECT"] = UserDefaults.standard.bool(forKey: "uploadProjectNames") ? "1" : "0"
         environment["VIBE_USAGE_UPLOAD_SESSIONS"] = UserDefaults.standard.bool(forKey: "uploadSessionMetadata") ? "1" : "0"
         environment["VIBE_USAGE_SHOW_IN_RANK"] = UserDefaults.standard.bool(forKey: "showInPublicLeaderboard") ? "1" : "0"
-        if let apiKey = ConfigManager.load()?.apiKey {
+        if includeCloudCredentials, let apiKey = ConfigManager.load()?.apiKey {
             environment["VIBE_USAGE_API_KEY"] = apiKey
         }
+        return environment
+    }
+
+    static func localCollectorEnvironment(
+        inheriting base: [String: String] = ProcessInfo.processInfo.environment,
+        runtimeDirectory: String
+    ) -> [String: String] {
+        var environment = collectorEnvironment(
+            inheriting: base,
+            runtimeDirectory: runtimeDirectory,
+            includeCloudCredentials: false
+        )
+        // Defense in depth if the allowlist changes later.
+        environment.removeValue(forKey: "VIBE_USAGE_API_KEY")
         return environment
     }
 

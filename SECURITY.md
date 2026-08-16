@@ -14,6 +14,10 @@ issue.
 ## Security invariants
 
 - The app executes only the collector source committed in this repository.
+- The dashboard works without a VibeCafe account and reads local data through a
+  dedicated `snapshot` command with no cloud/upload imports.
+- The local dashboard child never receives a VibeCafe API key. Local refresh
+  and its UI button cannot trigger cloud sync.
 - It never runs an npm package name, version tag, or package-manager install at
   runtime.
 - VibeCafe API keys live in macOS Keychain, not JSON.

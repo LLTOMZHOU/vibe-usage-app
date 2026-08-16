@@ -10,10 +10,18 @@ enum RuntimeDetector {
         var syncArguments: [String] {
             RuntimeDetector.syncArguments(cliPath: cliPath)
         }
+
+        func snapshotArguments(for range: UsageQueryRange) -> [String] {
+            RuntimeDetector.snapshotArguments(cliPath: cliPath, range: range)
+        }
     }
 
     static func syncArguments(cliPath: String) -> [String] {
         [cliPath, "sync"]
+    }
+
+    static func snapshotArguments(cliPath: String, range: UsageQueryRange) -> [String] {
+        [cliPath, "snapshot"] + range.localSnapshotArguments
     }
 
     static var bundledCLIPath: String? {

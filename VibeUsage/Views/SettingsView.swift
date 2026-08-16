@@ -15,16 +15,28 @@ struct SettingsView: View {
 
     var body: some View {
         Form {
-            // Sync section
             Section {
-                LabeledContent("API Key") {
+                LabeledContent("数据源") {
+                    Label("本机日志", systemImage: "internaldrive.fill")
+                        .foregroundStyle(.green)
+                }
+                Text("仪表盘默认只读取本机支持工具的使用记录，不需要账户，也不会上传数据。")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            } header: {
+                Text("本机仪表盘")
+            }
+
+            // Optional cloud account section
+            Section {
+                LabeledContent("账户") {
                     VStack(alignment: .trailing, spacing: 6) {
                         HStack(spacing: 8) {
-                            Text(apiKeyDisplay)
+                            Text(appState.isConfigured ? apiKeyDisplay : "未连接")
                                 .font(.system(.body, design: .monospaced))
                                 .foregroundStyle(Color(white: 0.5))
 
-                            Button(isRelinking ? "等待确认…" : "重新链接") {
+                            Button(isRelinking ? "等待确认…" : (appState.isConfigured ? "重新连接" : "连接 VibeCafe")) {
                                 relinkTask = Task { await relink() }
                             }
                             .font(.caption)
@@ -52,29 +64,36 @@ struct SettingsView: View {
                     }
                 }
 
-                LabeledContent("状态") {
-                    HStack(spacing: 4) {
-                        switch appState.syncStatus {
-                        case .idle:
-                            Image(systemName: "checkmark.circle.fill")
-                                .foregroundStyle(.green)
-                            Text("正常")
-                        case .syncing:
-                            ProgressView()
-                                .controlSize(.small)
-                            Text("同步中...")
-                        case .success:
-                            Image(systemName: "checkmark.circle.fill")
-                                .foregroundStyle(.green)
-                            Text("同步成功")
-                        case .error(let msg):
-                            Image(systemName: "exclamationmark.circle.fill")
-                                .foregroundStyle(.red)
-                            Text(msg)
-                                .lineLimit(1)
+                if appState.isConfigured {
+                    LabeledContent("同步状态") {
+                        HStack(spacing: 4) {
+                            switch appState.syncStatus {
+                            case .idle:
+                                Image(systemName: "checkmark.circle.fill")
+                                    .foregroundStyle(.green)
+                                Text(appState.remoteSyncEnabled ? "已启用" : "已连接，未启用")
+                            case .syncing:
+                                ProgressView()
+                                    .controlSize(.small)
+                                Text("同步中...")
+                            case .success:
+                                Image(systemName: "checkmark.circle.fill")
+                                    .foregroundStyle(.green)
+                                Text("同步成功")
+                            case .error(let msg):
+                                Image(systemName: "exclamationmark.circle.fill")
+                                    .foregroundStyle(.red)
+                                Text(msg)
+                                    .lineLimit(1)
+                            }
                         }
+                        .font(.caption)
                     }
-                    .font(.caption)
+
+                    Button("立即同步到 VibeCafe") {
+                        Task { await appState.triggerSync() }
+                    }
+                    .disabled(!appState.remoteSyncEnabled || appState.syncStatus == .syncing)
                 }
 
                 if let lastSync = appState.lastSyncTime {
@@ -85,7 +104,10 @@ struct SettingsView: View {
                     }
                 }
             } header: {
-                Text("同步")
+                Text("可选云同步")
+            } footer: {
+                Text("连接账户本身不会上传本机记录。只有连接后再明确开启“允许同步到 VibeCafe”才会上传。")
+                    .font(.caption)
             }
 
             Section {
@@ -96,6 +118,7 @@ struct SettingsView: View {
                     }
                 ))
                 .tint(.green)
+                .disabled(!appState.isConfigured)
 
                 Toggle("上传项目名称", isOn: Binding(
                     get: { appState.uploadProjectNames },
@@ -122,12 +145,14 @@ struct SettingsView: View {
                 VStack(alignment: .leading, spacing: 6) {
                     Text("同步默认关闭。开启后只上传半小时聚合的 Token 数；项目名称和会话时间、时长、消息数均需另行开启。设备使用随机别名，不上传电脑名称。")
                     Text("公开排行榜默认关闭。每次上传前，本应用都会向 VibeCafe 验证服务器已采用这里的选择；无法确认时同步会安全取消。只有你明确开启后才会公开展示。")
-                    Button("打开 VibeCafe 用量设置") {
-                        if let url = URL(string: "\(AppConfig.defaultApiUrl)/usage/setup") {
-                            NSWorkspace.shared.open(url)
+                    if appState.isConfigured {
+                        Button("打开 VibeCafe 用量设置") {
+                            if let url = URL(string: "\(AppConfig.defaultApiUrl)/usage/setup") {
+                                NSWorkspace.shared.open(url)
+                            }
                         }
+                        .buttonStyle(.link)
                     }
-                    .buttonStyle(.link)
                 }
                 .font(.caption)
             }
@@ -226,25 +251,26 @@ struct SettingsView: View {
                 Text("关于")
             }
 
-            // Danger zone
-            Section {
-                Button(role: .destructive) {
-                    showingResetConfirmation = true
-                } label: {
-                    Text("重置配置")
-                }
-                .confirmationDialog("确定要重置配置吗？", isPresented: $showingResetConfirmation) {
-                    Button("重置", role: .destructive) {
-                        resetConfig()
+            if appState.isConfigured {
+                Section {
+                    Button(role: .destructive) {
+                        showingResetConfirmation = true
+                    } label: {
+                        Text("断开 VibeCafe")
                     }
-                    Button("取消", role: .cancel) {}
-                } message: {
-                    Text("这将清除 API Key 并停止自动同步。")
+                    .confirmationDialog("确定要断开 VibeCafe 吗？", isPresented: $showingResetConfirmation) {
+                        Button("断开", role: .destructive) {
+                            disconnectCloud()
+                        }
+                        Button("取消", role: .cancel) {}
+                    } message: {
+                        Text("这将删除 API Key 并停止云同步。本机仪表盘和本机数据不会受影响。")
+                    }
                 }
             }
         }
         .formStyle(.grouped)
-        .frame(width: 440, height: 620)
+        .frame(width: 440, height: 680)
         .onAppear {
             loadSettings()
         }
@@ -314,7 +340,6 @@ struct SettingsView: View {
             }
             if let apiKey = res.apiKey {
                 appState.configure(apiKey: apiKey, apiUrl: AppConfig.validatedServiceURL(res.apiUrl ?? baseURL))
-                await appState.fetchUsageData()
                 relinkUserCode = nil
                 loadSettings()
                 return
@@ -351,11 +376,8 @@ struct SettingsView: View {
         isRelinking = false
     }
 
-    private func resetConfig() {
-        ConfigManager.clear()
-
-        appState.isConfigured = false
-        appState.buckets = []
-        apiKeyDisplay = "未配置"
+    private func disconnectCloud() {
+        appState.disconnectCloud()
+        apiKeyDisplay = "未连接"
     }
 }

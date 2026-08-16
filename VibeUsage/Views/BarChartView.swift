@@ -186,7 +186,7 @@ struct BarChartView: View {
                     .minimumScaleFactor(0.8)
                 Spacer()
                 HStack(spacing: 2) {
-                    ForEach(ChartMode.allCases, id: \.self) { mode in
+                    ForEach(ChartMode.allCases.filter { $0 != .cost || state.hasCostEstimates }, id: \.self) { mode in
                         Button(action: { state.chartMode = mode }) {
                             Text(mode.rawValue)
                                 .font(.system(size: 11, weight: state.chartMode == mode ? .medium : .regular))
