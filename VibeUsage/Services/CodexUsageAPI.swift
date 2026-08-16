@@ -175,10 +175,10 @@ enum CodexUsageAPI {
     private static let defaultBaseURL = "https://chatgpt.com/backend-api"
 
     private static func usageURL() -> URL {
-        let configURL = codexHome.appendingPathComponent("config.toml")
-        let configured = (try? String(contentsOf: configURL, encoding: .utf8))
-            .flatMap(parseChatGPTBaseURL)
-        return usageURL(base: configured ?? defaultBaseURL)
+        // A configurable proxy is appropriate for the Codex CLI itself, but a
+        // read-only menu-bar helper must not send the CLI's OAuth bearer token
+        // to a host selected by an editable config file.
+        URL(string: defaultBaseURL + "/wham/usage")!
     }
 
     /// Same base-URL semantics as the Codex CLI: `chatgpt_base_url` may point

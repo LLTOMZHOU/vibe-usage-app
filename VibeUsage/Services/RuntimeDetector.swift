@@ -1,26 +1,27 @@
 import Foundation
 
-/// Detects available Node.js runtime (bun preferred, npx fallback)
+/// Detects a JavaScript runtime for the audited CLI bundled with the app.
 enum RuntimeDetector {
-    static let packageSpecifier = "@vibe-cafe/vibe-usage@latest"
-
     struct Runtime {
         let executablePath: String
-        let name: String /// "bun" or "npx"
+        let name: String /// "bun" or "node"
+        let cliPath: String
 
-        /// Arguments to run vibe-usage sync
         var syncArguments: [String] {
-            RuntimeDetector.arguments(runtimeName: name, command: ["sync"])
+            RuntimeDetector.syncArguments(cliPath: cliPath)
         }
     }
 
-    static func arguments(runtimeName: String, command: [String]) -> [String] {
-        switch runtimeName {
-        case "bun":
-            ["x", packageSpecifier] + command
-        default:
-            ["--yes", packageSpecifier] + command
-        }
+    static func syncArguments(cliPath: String) -> [String] {
+        [cliPath, "sync"]
+    }
+
+    static var bundledCLIPath: String? {
+        Bundle.appResources.url(
+            forResource: "vibe-usage",
+            withExtension: "js",
+            subdirectory: "vibe-usage-cli/bin"
+        )?.path
     }
 
     /// Search common paths where node/bun might be installed
@@ -114,12 +115,13 @@ enum RuntimeDetector {
 
     /// Detect the best available JS runtime
     static func detect() -> Runtime? {
-        // Prefer bun for speed
-        if let bunPath = findExecutable("bun") {
-            return Runtime(executablePath: bunPath, name: "bun")
+        guard let cliPath = bundledCLIPath else { return nil }
+        // Node is the reference runtime used by the vendored CLI's test suite.
+        if let nodePath = findExecutable("node") {
+            return Runtime(executablePath: nodePath, name: "node", cliPath: cliPath)
         }
-        if let npxPath = findExecutable("npx") {
-            return Runtime(executablePath: npxPath, name: "npx")
+        if let bunPath = findExecutable("bun") {
+            return Runtime(executablePath: bunPath, name: "bun", cliPath: cliPath)
         }
         return nil
     }

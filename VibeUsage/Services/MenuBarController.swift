@@ -60,15 +60,10 @@ final class MenuBarController: NSObject {
     private var localEventMonitor: Any?
     private var isAnimating = false
 
-    /// Both surfaces want the panel lowered to `.normal` while they're up, and
-    /// they can overlap (e.g. an update session started from Settings). Each
-    /// callback flips its own flag; the panel level is derived from both, so
-    /// one surface closing can't prematurely restore `.popUpMenu` for the other.
     private var settingsWindowVisible = false
-    private var updateSessionVisible = false
 
     private func reconcilePanelLevel() {
-        panel?.level = (settingsWindowVisible || updateSessionVisible) ? .normal : .popUpMenu
+        panel?.level = settingsWindowVisible ? .normal : .popUpMenu
     }
 
     private static let panelWidth: CGFloat = 520
@@ -96,16 +91,6 @@ final class MenuBarController: NSObject {
         // bring it to the front through standard z-ordering.
         ActivationCoordinator.shared.onSettingsVisibilityChange = { [weak self] visible in
             self?.settingsWindowVisible = visible
-            self?.reconcilePanelLevel()
-        }
-
-        // Sparkle's update UI is made of normal-level windows; while an update
-        // session is active, lower our `.popUpMenu` panel to `.normal` so the
-        // update dialog isn't buried under the still-open popover. Restore when
-        // the session ends. Kept as a separate flag from Settings visibility so
-        // closing one surface can't clobber the other's lowering request.
-        ActivationCoordinator.shared.onUpdateModalVisibilityChange = { [weak self] showing in
-            self?.updateSessionVisible = showing
             self?.reconcilePanelLevel()
         }
 
@@ -308,7 +293,7 @@ final class MenuBarController: NSObject {
         panel.hasShadow = true
         // Honor any lowering request already in effect (e.g. panel first
         // created while Settings or an update session is up).
-        panel.level = (settingsWindowVisible || updateSessionVisible) ? .normal : .popUpMenu
+        panel.level = settingsWindowVisible ? .normal : .popUpMenu
         panel.hidesOnDeactivate = false
         panel.animationBehavior = .none
         panel.collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary]

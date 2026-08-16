@@ -1,0 +1,55 @@
+name: Hardened build
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  id-token: write
+  attestations: write
+
+jobs:
+  verify-and-package:
+    runs-on: macos-14
+    timeout-minutes: 30
+    steps:
+      - name: Check out reviewed source
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+
+      - name: Verify hardening invariants
+        run: ./scripts/verify-hardening.sh
+
+      - name: Test bundled collector policy
+        run: node --test collector-tests/*.test.mjs
+
+      - name: Run Swift tests
+        run: swift test
+
+      - name: Build ad-hoc signed personal package
+        run: ./scripts/build-app.sh --package
+
+      - name: Record artifact hashes
+        run: shasum -a 256 dist/VibeUsage.dmg dist/VibeUsage.zip > dist/SHA256SUMS
+
+      - name: Attest package provenance
+        if: github.event_name != 'pull_request'
+        uses: actions/attest-build-provenance@96b4a1ef7235a096b17240c259729fdd70c83d45 # v2
+        with:
+          subject-path: |
+            dist/VibeUsage.dmg
+            dist/VibeUsage.zip
+            dist/SHA256SUMS
+
+      - name: Upload reviewable package
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: VibeUsageHardened-${{ github.sha }}
+          path: |
+            dist/VibeUsage.dmg
+            dist/VibeUsage.zip
+            dist/SHA256SUMS
+          if-no-files-found: error
+          retention-days: 14

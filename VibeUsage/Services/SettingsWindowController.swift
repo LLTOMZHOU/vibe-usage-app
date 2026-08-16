@@ -2,7 +2,7 @@ import SwiftUI
 
 /// Manages a standalone NSWindow for settings.
 /// Settings is kept as an explicit NSWindow so it can coexist cleanly with the
-/// custom menu-bar panel and Sparkle's normal AppKit dialogs.
+/// custom menu-bar panel.
 @MainActor
 final class SettingsWindowController: NSObject, NSWindowDelegate {
     static let shared = SettingsWindowController()
@@ -30,7 +30,7 @@ final class SettingsWindowController: NSObject, NSWindowDelegate {
         let window = NSWindow(contentViewController: hostingController)
         window.title = "Vibe Usage Settings"
         window.styleMask = [.titled, .closable]
-        window.setContentSize(NSSize(width: 460, height: 480))
+        window.setContentSize(NSSize(width: 480, height: 640))
         window.center()
         window.isReleasedWhenClosed = false
         window.delegate = self

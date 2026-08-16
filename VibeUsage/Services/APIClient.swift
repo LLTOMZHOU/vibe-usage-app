@@ -7,7 +7,9 @@ struct APIClient: Sendable {
 
     /// Fetch usage buckets for the dashboard.
     func fetchUsage(range: UsageQueryRange) async throws -> UsageResponse {
-        guard var components = URLComponents(string: "\(baseURL)/api/usage") else {
+        let approvedBaseURL = AppConfig.validatedServiceURL(baseURL)
+        guard approvedBaseURL == baseURL,
+              var components = URLComponents(string: "\(approvedBaseURL)/api/usage") else {
             throw APIError.invalidURL
         }
         var queryItems = range.queryItems
@@ -16,8 +18,6 @@ struct APIClient: Sendable {
         guard let url = components.url else { throw APIError.invalidURL }
 
         debugLog("[APIClient] GET \(url.absoluteString)")
-        debugLog("[APIClient] Authorization: Bearer \(apiKey.prefix(12))...")
-
         var request = URLRequest(url: url)
         request.setValue("Bearer \(apiKey)", forHTTPHeaderField: "Authorization")
         request.timeoutInterval = 30
