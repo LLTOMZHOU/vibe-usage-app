@@ -118,7 +118,7 @@ struct PopoverView: View {
                         HStack(spacing: 3) {
                             Image(systemName: "arrow.up.circle.fill")
                                 .font(.system(size: 10))
-                            Text("发现更新")
+                            Text(AppStrings.text("发现更新", "Update available"))
                                 .font(.system(size: 10, weight: .medium))
                         }
                         .foregroundStyle(Color(red: 0.4, green: 0.7, blue: 1.0))
@@ -128,7 +128,7 @@ struct PopoverView: View {
                         .cornerRadius(3)
                     }
                     .buttonStyle(.plain)
-                    .help("发现新版本，点击更新")
+                    .help(AppStrings.text("发现新版本，点击更新", "A new version is available. Click to update."))
                 }
             }
 
@@ -138,7 +138,7 @@ struct PopoverView: View {
             Button {
                 SettingsWindowController.shared.show(appState: appState, updaterViewModel: updaterViewModel)
             } label: {
-                Text("设置")
+                Text(AppStrings.text("设置", "Settings"))
                     .font(.system(size: 11))
                     .foregroundStyle(Color(white: 0.5))
                     .padding(.horizontal, 8)
@@ -170,7 +170,9 @@ struct PopoverView: View {
                         .foregroundStyle(Color(red: 0.2, green: 0.8, blue: 0.5))
                 }
 
-                Text(appState.localDataError ?? (appState.isLoadingData ? "正在读取本机数据..." : "本机数据 · 未上传"))
+                Text(appState.localDataError ?? (appState.isLoadingData
+                    ? AppStrings.text("正在读取本机数据...", "Reading local data...")
+                    : AppStrings.text("本机数据 · 未上传", "Local data · not uploaded")))
                     .font(.system(size: 11))
                     .foregroundStyle(Color(white: 0.38))
                     .lineLimit(1)
@@ -189,7 +191,7 @@ struct PopoverView: View {
                 HStack(spacing: 4) {
                     Image(systemName: "arrow.clockwise")
                         .font(.system(size: 12))
-                    Text("更新数据")
+                    Text(AppStrings.text("更新数据", "Refresh data"))
                         .font(.system(size: 11))
                 }
                 .foregroundStyle(Color(white: 0.5))
@@ -204,7 +206,7 @@ struct PopoverView: View {
                 HStack(spacing: 4) {
                     Image(systemName: "power")
                         .font(.system(size: 12))
-                    Text("关闭")
+                    Text(AppStrings.text("关闭", "Quit"))
                         .font(.system(size: 11))
                 }
                 .foregroundStyle(Color(white: 0.5))
@@ -236,7 +238,7 @@ struct PopoverView: View {
         HStack(spacing: 8) {
             ProgressView()
                 .controlSize(.small)
-            Text("加载中")
+            Text(AppStrings.text("加载中", "Loading"))
                 .font(.system(size: 12, weight: .medium))
                 .foregroundStyle(Color(white: 0.66))
         }
@@ -254,12 +256,14 @@ struct PopoverView: View {
             Image(systemName: "tray")
                 .font(.system(size: 32))
                 .foregroundStyle(Color(white: 0.3))
-            Text(appState.runtimeAvailable ? "暂无本机数据" : "需要 Node.js 或 Bun")
+            Text(appState.runtimeAvailable
+                 ? AppStrings.text("暂无本机数据", "No local data yet")
+                 : AppStrings.text("需要 Node.js 或 Bun", "Node.js or Bun is required"))
                 .font(.system(size: 15, weight: .medium))
                 .foregroundStyle(Color(white: 0.5))
             Text(appState.runtimeAvailable
-                 ? "使用受支持的 AI 编程工具后，点击更新数据即可在本机查看"
-                 : "安装 Node.js 20+ 或 Bun 后即可读取本机使用记录；无需登录")
+                 ? AppStrings.text("使用受支持的 AI 编程工具后，点击更新数据即可在本机查看", "Use a supported AI coding tool, then refresh to see its local data here.")
+                 : AppStrings.text("安装 Node.js 20+ 或 Bun 后即可读取本机使用记录；无需登录", "Install Node.js 20+ or Bun to read local usage records. No sign-in required."))
                 .font(.system(size: 13))
                 .foregroundStyle(Color(white: 0.38))
                 .multilineTextAlignment(.center)

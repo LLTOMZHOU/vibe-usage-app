@@ -14,11 +14,11 @@ actor LocalUsageProvider {
         var errorDescription: String? {
             switch self {
             case .noRuntime:
-                return "未检测到 Node.js 或 Bun，请先安装后刷新"
+                return AppStrings.text("未检测到 Node.js 或 Bun，请先安装后刷新", "Node.js or Bun was not found. Install one, then refresh.")
             case .processFailure(let message):
-                return "本地读取失败：\(message)"
+                return AppStrings.text("本地读取失败：\(message)", "Local read failed: \(message)")
             case .invalidResponse(let message):
-                return "本地数据格式异常：\(message)"
+                return AppStrings.text("本地数据格式异常：\(message)", "Local data format error: \(message)")
             }
         }
     }

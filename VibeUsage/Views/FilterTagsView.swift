@@ -17,10 +17,10 @@ private enum FilterDimension: CaseIterable {
 
     var label: String {
         switch self {
-        case .hostname: "终端"
-        case .source: "工具"
-        case .model: "模型"
-        case .project: "项目"
+        case .hostname: AppStrings.text("终端", "Host")
+        case .source: AppStrings.text("工具", "Tool")
+        case .model: AppStrings.text("模型", "Model")
+        case .project: AppStrings.text("项目", "Project")
         }
     }
 }
@@ -65,14 +65,14 @@ struct FilterTagsView: View {
                             state.filters.clear()
                         }
                     } label: {
-                        Text("清除")
+                        Text(AppStrings.text("清除", "Clear"))
                             .font(.system(size: 12, weight: .medium))
                             .foregroundStyle(Color(red: 1.0, green: 0.42, blue: 0.42))
                             .padding(.horizontal, 8)
                             .frame(height: 28)
                     }
                     .buttonStyle(.plain)
-                    .help("清除筛选")
+                    .help(AppStrings.text("清除筛选", "Clear filters"))
                 }
             }
 
@@ -178,7 +178,7 @@ struct FilterTagsView: View {
             Button {
                 Task { await appState.fetchUsageData() }
             } label: {
-                Text("应用")
+                Text(AppStrings.text("应用", "Apply"))
                     .font(.system(size: 12, weight: .semibold))
                     .foregroundStyle(.black)
                     .padding(.horizontal, 10)
@@ -330,7 +330,7 @@ struct FilterTagsView: View {
     private func optionFlow(values: [String], selected: Set<String>, toggle: @escaping (String) -> Void) -> some View {
         VStack(alignment: .leading, spacing: 2) {
             ForEach(values, id: \.self) { value in
-                optionRow(title: value.isEmpty ? "未知" : value, isSelected: selected.contains(value)) {
+                optionRow(title: value.isEmpty ? AppStrings.text("未知", "Unknown") : value, isSelected: selected.contains(value)) {
                     toggle(value)
                 }
             }
@@ -341,7 +341,7 @@ struct FilterTagsView: View {
         VStack(alignment: .leading, spacing: 0) {
             ForEach(Array(groupModelsByFamily(uniqueModels).enumerated()), id: \.offset) { _, group in
                 let familyKey = group.family?.key ?? "other"
-                let familyLabel = group.family?.label ?? "其他"
+                let familyLabel = group.family?.label ?? AppStrings.text("其他", "Other")
                 let familyModels = Set(group.models)
                 let selectedInFamily = familyModels.intersection(appState.filters.models)
                 let allSelected = selectedInFamily.count == familyModels.count && !familyModels.isEmpty
@@ -387,7 +387,7 @@ struct FilterTagsView: View {
 
                     if isExpanded {
                         ForEach(group.models, id: \.self) { value in
-                            optionRow(title: value.isEmpty ? "未知" : value, isSelected: appState.filters.models.contains(value), indent: 19) {
+                            optionRow(title: value.isEmpty ? AppStrings.text("未知", "Unknown") : value, isSelected: appState.filters.models.contains(value), indent: 19) {
                                 toggle(value, in: &appState.filters.models)
                             }
                         }
@@ -463,7 +463,9 @@ struct FilterTagsView: View {
 
     private func summaryText(for dimension: FilterDimension) -> String {
         let selectedCount = selectedValues(for: dimension).count
-        return selectedCount == 0 ? "全部" : "\(selectedCount) 项"
+        return selectedCount == 0
+            ? AppStrings.text("全部", "")
+            : AppStrings.text("\(selectedCount) 项", "\(selectedCount) selected")
     }
 
     private func toggle(_ value: String, in set: inout Set<String>) {
@@ -478,9 +480,9 @@ struct FilterTagsView: View {
 
     private func displayLabel(for range: TimeRange) -> String {
         switch range {
-        case .today: return "今天"
+        case .today: return AppStrings.text("今天", "Today")
         case .oneDay: return "24H"
-        case .custom: return "自定义"
+        case .custom: return AppStrings.text("自定义", "Custom")
         default: return range.rawValue
         }
     }

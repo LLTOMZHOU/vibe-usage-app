@@ -18,13 +18,13 @@ actor SyncEngine {
         var errorDescription: String? {
             switch self {
             case .noRuntime:
-                "未检测到 Node.js 或 Bun，请先安装"
+                AppStrings.text("未检测到 Node.js 或 Bun，请先安装", "Node.js or Bun was not found. Install one first.")
             case .unauthorized:
-                "API Key 无效，请重新配置"
+                AppStrings.text("API Key 无效，请重新配置", "Invalid API key. Please configure it again.")
             case .processFailure(let msg):
-                "同步失败: \(msg)"
+                AppStrings.text("同步失败: \(msg)", "Sync failed: \(msg)")
             case .timeout:
-                "同步超时"
+                AppStrings.text("同步超时", "Sync timed out")
             }
         }
     }
@@ -33,7 +33,7 @@ actor SyncEngine {
 
     func runSync() async -> Result<String, SyncError> {
         guard !isRunning else {
-            return .success("同步已在进行中")
+            return .success(AppStrings.text("同步已在进行中", "Sync is already in progress"))
         }
         isRunning = true
         defer { isRunning = false }
@@ -94,7 +94,7 @@ actor SyncEngine {
                     if stdout.contains("Synced") || stdout.contains("No new usage data") {
                         continuation.resume(returning: .success(stdout))
                     } else {
-                        continuation.resume(returning: .success(stdout.isEmpty ? "同步完成" : stdout))
+                        continuation.resume(returning: .success(stdout.isEmpty ? AppStrings.text("同步完成", "Sync complete") : stdout))
                     }
                 } else {
                     // Check for specific errors
@@ -118,7 +118,7 @@ actor SyncEngine {
 
         if trimmed.contains("RangeError: Invalid string length")
             || trimmed.contains("node:internal/readline") {
-            return "本地同步工具读取历史记录时崩溃（RangeError: Invalid string length）。请更新 @vibe-cafe/vibe-usage 后重试；订阅配额监控可在设置中单独开启或关闭。"
+            return AppStrings.text("本地同步工具读取历史记录时崩溃（RangeError: Invalid string length）。请更新 @vibe-cafe/vibe-usage 后重试；订阅配额监控可在设置中单独开启或关闭。", "The local sync tool crashed while reading history (RangeError: Invalid string length). Update @vibe-cafe/vibe-usage and try again; subscription-limit monitoring can be enabled or disabled separately in Settings.")
         }
 
         return trimmed

@@ -20,25 +20,25 @@ struct DistributionChartsView: View {
         let data = filtered
         LazyVGrid(columns: [GridItem(.flexible(minimum: 0), spacing: 10), GridItem(.flexible(minimum: 0), spacing: 10)], alignment: .leading, spacing: 10) {
             DonutCardView(
-                title: "终端分布",
+                title: AppStrings.text("终端分布", "Machine breakdown"),
                 icon: "desktopcomputer",
                 slices: aggregate(data, by: \.hostname),
                 hasCostEstimates: appState.hasCostEstimates
             )
             DonutCardView(
-                title: "工具分布",
+                title: AppStrings.text("工具分布", "Tool breakdown"),
                 icon: "terminal",
                 slices: aggregate(data, by: \.source),
                 hasCostEstimates: appState.hasCostEstimates
             )
             DonutCardView(
-                title: "模型分布",
+                title: AppStrings.text("模型分布", "Model breakdown"),
                 icon: "cpu",
                 slices: aggregate(data, by: \.model),
                 hasCostEstimates: appState.hasCostEstimates
             )
             DonutCardView(
-                title: "项目分布",
+                title: AppStrings.text("项目分布", "Project breakdown"),
                 icon: "folder",
                 slices: aggregate(data, by: \.project),
                 hasCostEstimates: appState.hasCostEstimates
@@ -50,7 +50,7 @@ struct DistributionChartsView: View {
     private func aggregate(_ buckets: [UsageBucket], by keyPath: KeyPath<UsageBucket, String>) -> [SliceData] {
         var map: [String: (tokens: Int, cost: Double)] = [:]
         for b in buckets {
-            let key = b[keyPath: keyPath].isEmpty ? "未知" : b[keyPath: keyPath]
+            let key = b[keyPath: keyPath].isEmpty ? AppStrings.text("未知", "Unknown") : b[keyPath: keyPath]
             let existing = map[key] ?? (tokens: 0, cost: 0)
             map[key] = (
                 tokens: existing.tokens + b.computedTotal,
@@ -88,7 +88,7 @@ struct DistributionChartsView: View {
         }
 
         if otherTokens > 0 {
-            slices.append(SliceData(label: "其他", tokens: otherTokens, cost: otherCost, color: otherColor))
+            slices.append(SliceData(label: AppStrings.text("其他", "Other"), tokens: otherTokens, cost: otherCost, color: otherColor))
         }
 
         return slices
@@ -112,7 +112,7 @@ enum MetricMode {
     var label: String {
         switch self {
         case .tokens: "Token"
-        case .cost: "费用"
+        case .cost: AppStrings.text("费用", "Cost")
         }
     }
 }
@@ -153,7 +153,7 @@ private struct DonutCardView: View {
             }
 
             if slices.isEmpty || total == 0 {
-                Text("暂无数据")
+                Text(AppStrings.text("暂无数据", "No data yet"))
                     .font(.system(size: 12))
                     .foregroundStyle(Color(white: 0.38))
                     .frame(maxWidth: .infinity)
@@ -286,7 +286,7 @@ private struct DonutShape: View {
             }
 
             VStack(spacing: 1) {
-                Text(mode == .tokens ? "Tokens" : "预估")
+                Text(mode == .tokens ? "Tokens" : AppStrings.text("预估", "Estimate"))
                     .font(.system(size: 9))
                     .foregroundStyle(Color(white: 0.45))
                 Text(centerLabel)

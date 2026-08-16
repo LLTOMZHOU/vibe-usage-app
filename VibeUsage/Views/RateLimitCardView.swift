@@ -69,7 +69,7 @@ struct RateLimitCardView: View {
         HStack(spacing: 6) {
             Image(systemName: "info.circle")
                 .font(.system(size: 10))
-            Text("支持 Codex / Claude 订阅配额监控")
+            Text(AppStrings.text("支持 Codex / Claude 订阅配额监控", "Codex and Claude subscription limits"))
                 .font(.system(size: 11))
         }
         .foregroundStyle(Color(white: 0.4))
@@ -136,7 +136,7 @@ private struct ProviderCard: View {
                 .font(.system(size: 13, weight: .semibold))
                 .foregroundStyle(.white)
             if let credits = snapshot.resetCreditsCount, credits > 0 {
-                Text("重置券 ×\(credits)")
+                Text(AppStrings.text("重置券 ×\(credits)", "Reset credits ×\(credits)"))
                     .font(.system(size: 9, weight: .medium))
                     .foregroundStyle(Color(red: 0.95, green: 0.72, blue: 0.25))
                     .padding(.horizontal, 6)
@@ -172,7 +172,7 @@ private struct ProviderCard: View {
             // No provider reaches this state any more: Claude used to sit here
             // until the user installed the statusline hook. Kept as a graceful
             // landing for a snapshot persisted by an older build.
-            messageContent(text: "订阅配额未启用", action: "重试")
+            messageContent(text: AppStrings.text("订阅配额未启用", "Subscription limits are disabled"), action: AppStrings.text("重试", "Retry"))
         case .unauthorized:
             // Only Codex reaches this state today: the live endpoint rejected
             // the token even after re-reading auth.json. The accurate remedy is
@@ -182,17 +182,17 @@ private struct ProviderCard: View {
             // truly revoked, opening the CLI surfaces the re-login prompt too.
             // Telling the user to "re-login" would be wrong advice in the
             // common expired-while-idle case.
-            messageContent(text: "请打开 \(snapshot.provider.rawValue) 使用一次后重试", action: "重试")
-        case .error(let m): messageContent(text: m, action: "重试")
+            messageContent(text: AppStrings.text("请打开 \(snapshot.provider.rawValue) 使用一次后重试", "Open \(snapshot.provider.rawValue) once, then retry."), action: AppStrings.text("重试", "Retry"))
+        case .error(let m): messageContent(text: m, action: AppStrings.text("重试", "Retry"))
         case .noData:
             if isRefreshing {
-                Text("正在读取订阅配额…")
+                Text(AppStrings.text("正在读取订阅配额…", "Reading subscription limits…"))
                     .font(.system(size: 11))
                     .foregroundStyle(Color(white: 0.5))
             } else if snapshot.provider == .claudeCode {
                 // Reached when the probe found no Claude Code binary, could not
                 // reach the usage endpoint, and no cache existed either.
-                messageContent(text: "暂无订阅配额数据", action: "重试")
+                messageContent(text: AppStrings.text("暂无订阅配额数据", "No subscription-limit data yet"), action: AppStrings.text("重试", "Retry"))
             } else {
                 EmptyView()
             }
@@ -234,7 +234,9 @@ private struct ProviderCard: View {
             // a JSONL snapshot can only mean "no event carried it recently".
             out.append(.placeholder(
                 label: "5h",
-                message: snapshot.fiveHourNotEnforced ? "官方当前未启用" : "近 5 小时无活动"
+                message: snapshot.fiveHourNotEnforced
+                    ? AppStrings.text("官方当前未启用", "Not currently enforced by the provider")
+                    : AppStrings.text("近 5 小时无活动", "No activity in the last 5 hours")
             ))
         }
         if let w = snapshot.sevenDay { out.append(.live(label: "7d", window: w)) }
@@ -260,7 +262,7 @@ private struct ProviderCard: View {
                     .frame(height: rowHeight)
             }
             if rows.isEmpty {
-                Text("暂无订阅配额数据")
+                Text(AppStrings.text("暂无订阅配额数据", "No subscription-limit data yet"))
                     .font(.system(size: 11))
                     .foregroundStyle(Color(white: 0.45))
             }
@@ -316,8 +318,8 @@ private struct ProviderCard: View {
 
     private func tooltipTitle(for label: String) -> String {
         switch label {
-        case "5h": return "5 小时窗口"
-        case "7d": return "7 天窗口"
+        case "5h": return AppStrings.text("5 小时窗口", "5-hour window")
+        case "7d": return AppStrings.text("7 天窗口", "7-day window")
         default:   return label
         }
     }
@@ -343,7 +345,7 @@ private struct ProviderCard: View {
     private func footerNote(at now: Date) -> String? {
         if let asOf = snapshot.dataAsOf,
            now.timeIntervalSince(asOf) > Self.staleNoteThreshold {
-            return "数据截至 \(Formatters.formatRelativeTime(asOf, relativeTo: now))"
+            return AppStrings.text("数据截至 \(Formatters.formatRelativeTime(asOf, relativeTo: now))", "Data as of \(Formatters.formatRelativeTime(asOf, relativeTo: now))")
         }
         return nil
     }
@@ -479,8 +481,8 @@ private struct TooltipView: View {
 
             row(
                 dotColor: tokenColor,
-                label: "Token 用量",
-                value: "已使用 \(tokenPercentText)",
+                label: AppStrings.text("Token 用量", "Token usage"),
+                value: AppStrings.text("已使用 \(tokenPercentText)", "\(tokenPercentText) used"),
                 valueColor: tokenColor,
                 valueWeight: .medium
             )
@@ -491,24 +493,24 @@ private struct TooltipView: View {
             if let elapsed = elapsedPercentText, let remaining = remainingText {
                 row(
                     dotColor: Color(white: 0.55),
-                    label: "时间",
-                    value: "已过去 \(elapsed) · 剩余 \(remaining)",
+                    label: AppStrings.text("时间", "Time"),
+                    value: AppStrings.text("已过去 \(elapsed) · 剩余 \(remaining)", "\(elapsed) elapsed · \(remaining) left"),
                     valueColor: Color(white: 0.82),
                     valueWeight: .regular
                 )
             } else if let remaining = remainingText {
                 row(
                     dotColor: Color(white: 0.55),
-                    label: "重置",
-                    value: "剩余 \(remaining)",
+                    label: AppStrings.text("重置", "Reset"),
+                    value: AppStrings.text("剩余 \(remaining)", "\(remaining) left"),
                     valueColor: Color(white: 0.82),
                     valueWeight: .regular
                 )
             } else {
                 row(
                     dotColor: Color(white: 0.55),
-                    label: "时间",
-                    value: "未知",
+                    label: AppStrings.text("时间", "Time"),
+                    value: AppStrings.text("未知", "Unknown"),
                     valueColor: Color(white: 0.5),
                     valueWeight: .regular
                 )

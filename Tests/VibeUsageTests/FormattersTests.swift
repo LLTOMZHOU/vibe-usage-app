@@ -9,8 +9,13 @@ struct FormattersTests {
         let timelineDate = producedAt.addingTimeInterval(6 * 60)
 
         #expect(
-            Formatters.formatRelativeTime(producedAt, relativeTo: timelineDate)
+            Formatters.formatRelativeTime(producedAt, relativeTo: timelineDate, languageIdentifier: "zh-Hans")
                 == "6 分钟前"
+        )
+
+        #expect(
+            Formatters.formatRelativeTime(producedAt, relativeTo: timelineDate, languageIdentifier: "en-US")
+                == "6 min ago"
         )
     }
 }
