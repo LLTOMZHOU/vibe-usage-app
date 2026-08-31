@@ -38,7 +38,8 @@ struct RateLimitCardView: View {
     }
 
     /// Hide a card only when the provider has produced no signal at all
-    /// (`.noData`). `.disabled` / `.unauthorized` / `.error` all carry an
+    /// (`.noData`). `.disabled` / `.unauthorized` / `.retryableError` /
+    /// `.error` all carry an
     /// actionable affordance and stay visible. When BOTH sides are `.noData`,
     /// `body` swaps the row for `noticeBar` so the empty state is whisper-quiet.
     private func shouldShowCard(_ snap: ProviderRateLimit) -> Bool {
@@ -183,17 +184,18 @@ private struct ProviderCard: View {
             // Telling the user to "re-login" would be wrong advice in the
             // common expired-while-idle case.
             messageContent(text: AppStrings.text("请打开 \(snapshot.provider.rawValue) 使用一次后重试", "Open \(snapshot.provider.rawValue) once, then retry."), action: AppStrings.text("重试", "Retry"))
+        case .retryableError:
+            messageContent(text: AppStrings.text("暂时无法读取订阅配额", "Unable to read subscription limits right now"), action: AppStrings.text("重试", "Retry"))
         case .error(let m): messageContent(text: m, action: AppStrings.text("重试", "Retry"))
         case .noData:
             if isRefreshing {
                 Text(AppStrings.text("正在读取订阅配额…", "Reading subscription limits…"))
                     .font(.system(size: 11))
                     .foregroundStyle(Color(white: 0.5))
-            } else if snapshot.provider == .claudeCode {
-                // Reached when the probe found no Claude Code binary, could not
-                // reach the usage endpoint, and no cache existed either.
-                messageContent(text: AppStrings.text("暂无订阅配额数据", "No subscription-limit data yet"), action: AppStrings.text("重试", "Retry"))
             } else {
+                // Settled `.noData` cards are collapsed by `shouldShowCard`;
+                // concrete read failures use `.retryableError` and remain
+                // retryable.
                 EmptyView()
             }
         }
@@ -361,7 +363,7 @@ private struct ProviderCard: View {
                 .truncationMode(.tail)
             Spacer(minLength: 0)
             Button {
-                Task { await appState.refreshAllRateLimits() }
+                Task { await retryProvider() }
             } label: {
                 Text(action)
                     .font(.system(size: 11))
@@ -373,6 +375,10 @@ private struct ProviderCard: View {
             }
             .buttonStyle(.plain)
         }
+    }
+
+    private func retryProvider() async {
+        await appState.refreshRateLimit(for: snapshot.provider)
     }
 }
 
