@@ -8,8 +8,16 @@ struct RateLimitCardView: View {
     var body: some View {
         let codex = snapshot(for: .codex)
         let claude = snapshot(for: .claudeCode)
-        let showCodex = shouldShowCard(codex)
-        let showClaude = shouldShowCard(claude)
+        let visibleProviders = Self.visibleProviders(
+            codex: codex,
+            claude: claude,
+            codexEnabled: appState.codexRateLimitEnabled,
+            claudeEnabled: appState.claudeRateLimitEnabled,
+            codexRefreshing: appState.isCodexRateLimitRefreshing,
+            claudeRefreshing: appState.isClaudeRateLimitRefreshing
+        )
+        let showCodex = visibleProviders.contains(.codex)
+        let showClaude = visibleProviders.contains(.claudeCode)
 
         if showCodex && showClaude {
             // Grid keeps both row cells the same height by default — needed
@@ -37,30 +45,26 @@ struct RateLimitCardView: View {
             ?? ProviderRateLimit(provider: provider, status: .noData)
     }
 
-    /// Hide a card only when the provider has produced no signal at all
-    /// (`.noData`). `.disabled` / `.unauthorized` / `.retryableError` /
-    /// `.error` all carry an
-    /// actionable affordance and stay visible. When BOTH sides are `.noData`,
-    /// `body` swaps the row for `noticeBar` so the empty state is whisper-quiet.
-    private func shouldShowCard(_ snap: ProviderRateLimit) -> Bool {
-        switch snap.provider {
-        case .codex where !appState.codexRateLimitEnabled:
-            return false
-        case .claudeCode where !appState.claudeRateLimitEnabled:
-            return false
-        default:
-            // On a cold open there is no snapshot to render yet. Keep the card
-            // visible while the refresh runs so its spinner and loading copy
-            // are not replaced by a misleading static notice.
-            return snap.status != .noData || isRefreshing(snap.provider)
-        }
-    }
+    /// Keep every enabled provider visible once at least one provider has a
+    /// real, actionable, or loading card. This keeps the Settings toggles
+    /// truthful while retaining the compact notice when every enabled provider
+    /// is idle with no data.
+    static func visibleProviders(
+        codex: ProviderRateLimit,
+        claude: ProviderRateLimit,
+        codexEnabled: Bool,
+        claudeEnabled: Bool,
+        codexRefreshing: Bool,
+        claudeRefreshing: Bool
+    ) -> Set<ProviderRateLimit.Provider> {
+        let codexHasContent = codexEnabled && (codex.status != .noData || codexRefreshing)
+        let claudeHasContent = claudeEnabled && (claude.status != .noData || claudeRefreshing)
+        guard codexHasContent || claudeHasContent else { return [] }
 
-    private func isRefreshing(_ provider: ProviderRateLimit.Provider) -> Bool {
-        switch provider {
-        case .codex:      return appState.isCodexRateLimitRefreshing
-        case .claudeCode: return appState.isClaudeRateLimitRefreshing
-        }
+        var visible: Set<ProviderRateLimit.Provider> = []
+        if codexEnabled { visible.insert(.codex) }
+        if claudeEnabled { visible.insert(.claudeCode) }
+        return visible
     }
 
     /// Single-line whisper shown when neither Codex nor Claude has any data.
