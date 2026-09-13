@@ -1,7 +1,7 @@
 # Hardened fork design
 
 This fork's app review is current through upstream commit
-`1d6b857901ee3f643a88036827efdb9314298258`; the original hardened baseline was
+`6feb8bcec3d034046d34f3709bd97f23190962c6`; the original hardened baseline was
 `9c762033be1a1109019840495432930d873669ec`. It vendors collector commit
 `6c72607286b125488003c741c280d4cce6263d1f` (`0.10.11`).
 
