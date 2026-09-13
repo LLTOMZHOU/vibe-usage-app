@@ -264,12 +264,8 @@ enum ClaudeUsageProbe {
     /// even if a descendant inherited and retained stdout.
     ///
     /// `--input-format stream-json` is accepted only in print mode by current
-    /// Claude Code releases. The process-local `--settings` JSON clears one
-    /// traffic flag that Claude Code can otherwise re-inject from the user's
-    /// settings after spawn. It never writes the user's settings file.
-    static let nonessentialTrafficOverrideSettings =
-        #"{"env":{"CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC":""}}"#
-
+    /// Claude Code releases. Keep the argument list testable so future flag
+    /// changes cannot silently break the explicitly enabled quota probe.
     static let processArguments = [
         "--print",
         "--safe-mode",
@@ -280,7 +276,6 @@ enum ClaudeUsageProbe {
         "--output-format", "stream-json",
         "--input-format", "stream-json",
         "--verbose",
-        "--settings", nonessentialTrafficOverrideSettings,
     ]
 
     private static func run(candidate: Binary, timeout: TimeInterval) async throws -> Data {

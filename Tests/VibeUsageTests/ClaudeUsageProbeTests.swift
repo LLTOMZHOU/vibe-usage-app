@@ -5,10 +5,11 @@ import Testing
 struct ClaudeUsageProbeTests {
 
     /// Current Claude Code releases reject stream-json stdin unless print mode
-    /// is explicit. The settings override is process-local and must remain
-    /// narrowly scoped to the flag that suppresses the quota fetch.
+    /// is explicit. Do not add `--bare` or a settings override: the former
+    /// drops required credentials, while the latter would override a user's
+    /// process-wide privacy setting without constraining other network traffic.
     @Test
-    func probeArgumentsEnablePrintModeAndNarrowlyClearTheTrafficFlag() throws {
+    func probeArgumentsEnablePrintModeWithoutOverridingUserSettings() {
         #expect(ClaudeUsageProbe.processArguments == [
             "--print",
             "--safe-mode",
@@ -19,21 +20,9 @@ struct ClaudeUsageProbeTests {
             "--output-format", "stream-json",
             "--input-format", "stream-json",
             "--verbose",
-            "--settings", ClaudeUsageProbe.nonessentialTrafficOverrideSettings,
         ])
         #expect(!ClaudeUsageProbe.processArguments.contains("--bare"))
-
-        let settingsIndex = try #require(
-            ClaudeUsageProbe.processArguments.firstIndex(of: "--settings")
-        )
-        let raw = ClaudeUsageProbe.processArguments[settingsIndex + 1]
-        let object = try #require(
-            try JSONSerialization.jsonObject(with: Data(raw.utf8)) as? [String: Any]
-        )
-        let env = try #require(object["env"] as? [String: Any])
-        #expect(Set(env.keys) == ["CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC"])
-        #expect(env["CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC"] as? String == "")
-        #expect(object.count == 1)
+        #expect(!ClaudeUsageProbe.processArguments.contains("--settings"))
     }
 
     /// Verbatim shape of a real `get_usage` control response (trimmed to the
