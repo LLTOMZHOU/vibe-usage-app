@@ -262,19 +262,31 @@ enum ClaudeUsageProbe {
     /// Launch one binary, exchange `initialize` + `get_usage`, and return the
     /// response payload. Async pipe iteration lets cancellation stop waiting
     /// even if a descendant inherited and retained stdout.
+    ///
+    /// `--input-format stream-json` is accepted only in print mode by current
+    /// Claude Code releases. The process-local `--settings` JSON clears one
+    /// traffic flag that Claude Code can otherwise re-inject from the user's
+    /// settings after spawn. It never writes the user's settings file.
+    static let nonessentialTrafficOverrideSettings =
+        #"{"env":{"CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC":""}}"#
+
+    static let processArguments = [
+        "--print",
+        "--safe-mode",
+        "--no-session-persistence",
+        "--strict-mcp-config",
+        "--mcp-config", #"{"mcpServers":{}}"#,
+        "--tools", "",
+        "--output-format", "stream-json",
+        "--input-format", "stream-json",
+        "--verbose",
+        "--settings", nonessentialTrafficOverrideSettings,
+    ]
+
     private static func run(candidate: Binary, timeout: TimeInterval) async throws -> Data {
         let process = Process()
         process.executableURL = candidate.url
-        process.arguments = [
-            "--safe-mode",
-            "--no-session-persistence",
-            "--strict-mcp-config",
-            "--mcp-config", #"{"mcpServers":{}}"#,
-            "--tools", "",
-            "--output-format", "stream-json",
-            "--input-format", "stream-json",
-            "--verbose",
-        ]
+        process.arguments = processArguments
         process.currentDirectoryURL = FileManager.default.homeDirectoryForCurrentUser
         process.environment = childEnvironment()
 
