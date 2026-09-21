@@ -18,4 +18,39 @@ struct FormattersTests {
                 == "6 min ago"
         )
     }
+
+    @Test
+    func dailyUsageKeysUseTheViewerTimezone() throws {
+        let shanghai = try #require(TimeZone(identifier: "Asia/Shanghai"))
+        let utc = try #require(TimeZone(secondsFromGMT: 0))
+        let bucket = UsageBucket(
+            source: "codex",
+            model: "gpt-5",
+            project: "vibe-usage",
+            hostname: "mac",
+            bucketStart: "2026-08-21T16:00:00.000Z",
+            inputTokens: 1,
+            outputTokens: 0,
+            cacheCreationInputTokens: nil,
+            cachedInputTokens: 0,
+            reasoningOutputTokens: 0,
+            totalTokens: 1,
+            estimatedCost: nil
+        )
+        let session = UsageSession(
+            source: "codex",
+            project: "vibe-usage",
+            hostname: "mac",
+            firstMessageAt: "2026-08-21T16:30:00.000Z",
+            lastMessageAt: "2026-08-21T16:35:00.000Z",
+            durationSeconds: 300,
+            activeSeconds: 300,
+            messageCount: 2,
+            userMessageCount: 1
+        )
+
+        #expect(bucket.dayKey(in: shanghai) == "2026-08-22")
+        #expect(session.dayKey(in: shanghai) == "2026-08-22")
+        #expect(bucket.dayKey(in: utc) == "2026-08-21")
+    }
 }

@@ -27,4 +27,24 @@ final class MenuBarPanelGeometryTests: XCTestCase {
             XCTAssertEqual(point.y, item.visible.maxY - 6)
         }
     }
+
+    func testPanelRightAlignsToButtonAndClampsToDisplayEdges() {
+        let rightAligned = PopoverGeometry.topLeftPoint(
+            buttonFrame: NSRect(x: 1_300, y: 877, width: 24, height: 23),
+            visibleFrame: NSRect(x: 0, y: 0, width: 1_440, height: 877),
+            panelWidth: 520,
+            horizontalInset: 8,
+            topGap: 6
+        )
+        XCTAssertEqual(rightAligned.x, 804)
+
+        let leftClamped = PopoverGeometry.topLeftPoint(
+            buttonFrame: NSRect(x: -1_910, y: 1_057, width: 24, height: 23),
+            visibleFrame: NSRect(x: -1_920, y: 0, width: 1_920, height: 1_057),
+            panelWidth: 520,
+            horizontalInset: 8,
+            topGap: 6
+        )
+        XCTAssertEqual(leftClamped.x, -1_912)
+    }
 }

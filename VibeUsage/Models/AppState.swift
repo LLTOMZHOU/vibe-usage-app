@@ -498,6 +498,19 @@ final class AppState {
         await rateLimitCoordinator?.refreshCodex()
     }
 
+    /// Refresh exactly one provider so a card-level retry does not perform an
+    /// unrelated network request or spawn an unrelated subprocess.
+    func refreshRateLimit(for provider: ProviderRateLimit.Provider) async {
+        switch provider {
+        case .codex:
+            guard codexRateLimitEnabled else { return }
+            await rateLimitCoordinator?.refreshCodex()
+        case .claudeCode:
+            guard claudeRateLimitEnabled else { return }
+            await rateLimitCoordinator?.refreshClaude()
+        }
+    }
+
     /// Refresh Codex rate limits only if the last fetch was over a minute ago.
     /// Used by popover-open so toggling the menu bar doesn't re-walk the
     /// Codex session tree on every click.

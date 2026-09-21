@@ -8,6 +8,7 @@ actor LocalUsageProvider {
 
     enum LocalUsageError: LocalizedError {
         case noRuntime
+        case timeout
         case processFailure(String)
         case invalidResponse(String)
 
@@ -15,6 +16,8 @@ actor LocalUsageProvider {
             switch self {
             case .noRuntime:
                 return AppStrings.text("未检测到 Node.js 或 Bun，请先安装后刷新", "Node.js or Bun was not found. Install one, then refresh.")
+            case .timeout:
+                return AppStrings.text("本地读取超时", "Local read timed out")
             case .processFailure(let message):
                 return AppStrings.text("本地读取失败：\(message)", "Local read failed: \(message)")
             case .invalidResponse(let message):
@@ -36,65 +39,29 @@ actor LocalUsageProvider {
             throw LocalUsageError.noRuntime
         }
 
-        try FileManager.default.createDirectory(
-            at: AppConfig.dataDirectory,
-            withIntermediateDirectories: true,
-            attributes: [.posixPermissions: 0o700]
-        )
-        let identifier = UUID().uuidString
-        let stdoutURL = AppConfig.dataDirectory.appendingPathComponent("snapshot-\(identifier).json")
-        let stderrURL = AppConfig.dataDirectory.appendingPathComponent("snapshot-\(identifier).log")
-        FileManager.default.createFile(atPath: stdoutURL.path, contents: nil, attributes: [.posixPermissions: 0o600])
-        FileManager.default.createFile(atPath: stderrURL.path, contents: nil, attributes: [.posixPermissions: 0o600])
-        defer {
-            try? FileManager.default.removeItem(at: stdoutURL)
-            try? FileManager.default.removeItem(at: stderrURL)
-        }
-
-        let stdoutHandle = try FileHandle(forWritingTo: stdoutURL)
-        let stderrHandle = try FileHandle(forWritingTo: stderrURL)
-        defer {
-            try? stdoutHandle.close()
-            try? stderrHandle.close()
-        }
-
-        let process = Process()
-        process.executableURL = URL(fileURLWithPath: runtime.executablePath)
-        process.arguments = runtime.snapshotArguments(for: range)
         let runtimeDirectory = (runtime.executablePath as NSString).deletingLastPathComponent
-        process.environment = AppConfig.localCollectorEnvironment(runtimeDirectory: runtimeDirectory)
-        process.standardOutput = stdoutHandle
-        process.standardError = stderrHandle
-
+        let output: CLIProcessRunner.Output
         do {
-            try process.run()
-            let timeoutItem = DispatchWorkItem {
-                if process.isRunning {
-                    process.terminate()
-                }
-            }
-            DispatchQueue.global(qos: .utility).asyncAfter(
-                deadline: .now() + 120,
-                execute: timeoutItem
+            output = try await CLIProcessRunner.run(
+                executable: runtime.executablePath,
+                arguments: runtime.snapshotArguments(for: range),
+                environment: AppConfig.localCollectorEnvironment(runtimeDirectory: runtimeDirectory),
+                timeout: 120
             )
-            process.waitUntilExit()
-            timeoutItem.cancel()
-            try stdoutHandle.synchronize()
-            try stderrHandle.synchronize()
+        } catch is CancellationError {
+            throw CancellationError()
         } catch {
             throw LocalUsageError.processFailure(error.localizedDescription)
         }
 
-        let stderrData = (try? Data(contentsOf: stderrURL)) ?? Data()
-        let stderr = String(data: stderrData, encoding: .utf8)?
-            .trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
-        guard process.terminationStatus == 0 else {
-            throw LocalUsageError.processFailure(stderr.isEmpty ? "Exit code \(process.terminationStatus)" : stderr)
+        if output.timedOut { throw LocalUsageError.timeout }
+        let stderr = output.stderr.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard output.exitCode == 0 else {
+            throw LocalUsageError.processFailure(stderr.isEmpty ? "Exit code \(output.exitCode)" : stderr)
         }
 
         do {
-            let data = try Data(contentsOf: stdoutURL)
-            return try JSONDecoder().decode(UsageResponse.self, from: data)
+            return try JSONDecoder().decode(UsageResponse.self, from: Data(output.stdout.utf8))
         } catch {
             throw LocalUsageError.invalidResponse(error.localizedDescription)
         }

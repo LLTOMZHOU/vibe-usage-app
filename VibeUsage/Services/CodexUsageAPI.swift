@@ -27,12 +27,20 @@ enum CodexUsageAPI {
     /// Why a live fetch produced no snapshot. The coordinator maps these to
     /// different fallbacks: `unauthorized` surfaces a re-login affordance,
     /// everything else silently degrades to the JSONL scan.
-    enum FetchError: Error {
+    enum FetchError: RateLimitFetchError {
         case notLoggedIn        // no auth.json / no OAuth tokens (API-key-only login)
         case unauthorized       // token rejected even after re-reading auth.json
         case transport(Error)   // offline, DNS failure, timeout
         case badResponse(Int)   // non-200 that survived the retry policy
         case unparseable        // 200 but not a JSON shape we recognize
+
+        var rateLimitFailure: RateLimitFetchFailure {
+            switch self {
+            case .notLoggedIn: return .absent
+            case .unauthorized: return .unauthorized
+            case .transport, .badResponse, .unparseable: return .transient
+            }
+        }
     }
 
     // MARK: - Fetch
@@ -222,8 +230,20 @@ enum CodexUsageAPI {
 
     static func parseUsageResponse(_ data: Data, now: Date = Date()) -> ProviderRateLimit? {
         guard let obj = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
-              let rateLimit = obj["rate_limit"] as? [String: Any]
+              let rawRateLimit = obj["rate_limit"]
         else { return nil }
+
+        // The live endpoint may explicitly return `rate_limit: null` when it
+        // has no current window. That is a valid empty response, unlike a
+        // missing key or an unexpected scalar, which still signals schema drift.
+        let rateLimit: [String: Any]
+        if rawRateLimit is NSNull {
+            rateLimit = [:]
+        } else if let object = rawRateLimit as? [String: Any] {
+            rateLimit = object
+        } else {
+            return nil
+        }
 
         var fiveHour: RateLimitWindow?
         var sevenDay: RateLimitWindow?

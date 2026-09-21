@@ -104,6 +104,17 @@ struct CodexUsageAPITests {
     }
 
     @Test
+    func nullRateLimitObjectIsAnEmptyAnswerWhileOtherShapesAreRejected() throws {
+        let nullObject = #"{ "plan_type": "plus", "rate_limit": null }"#
+        let snapshot = try #require(CodexUsageAPI.parseUsageResponse(Data(nullObject.utf8)))
+        #expect(snapshot.status == .noData)
+        #expect(snapshot.planLabel == "Plus")
+
+        let wrongType = #"{ "plan_type": "plus", "rate_limit": "unavailable" }"#
+        #expect(CodexUsageAPI.parseUsageResponse(Data(wrongType.utf8)) == nil)
+    }
+
+    @Test
     func rejectsResponsesWithoutRateLimitObject() {
         let json = #"{ "detail": "Something went wrong" }"#
         #expect(CodexUsageAPI.parseUsageResponse(Data(json.utf8)) == nil)

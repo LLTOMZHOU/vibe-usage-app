@@ -28,7 +28,7 @@ import Foundation
 /// as a side effect — which is exactly what `ClaudeUsageCache` paints from.
 enum ClaudeUsageProbe {
 
-    enum ProbeError: Error {
+    enum ProbeError: RateLimitFetchError {
         /// No Claude Code binary found in any known location.
         case noBinary
         /// Every candidate binary failed to produce a usable response.
@@ -44,12 +44,26 @@ enum ClaudeUsageProbe {
         /// usage endpoint failed (offline, or logged out). Distinct from
         /// `limitsNotApplicable` because here a retry can succeed.
         case limitsUnavailable
+
+        var rateLimitFailure: RateLimitFetchFailure {
+            switch self {
+            case .noBinary:
+                return .absent
+            case .limitsNotApplicable:
+                return .notApplicable
+            case let .allCandidatesFailed(underlying):
+                return (underlying as? any RateLimitFetchError)?.rateLimitFailure ?? .transient
+            case .launchFailed, .timedOut, .noResponse, .limitsUnavailable:
+                return .transient
+            }
+        }
     }
 
     /// Overall budget for one probe. Measured runs land at 2.3–3.0s; the
     /// generous ceiling covers a cold binary start on a busy machine without
     /// leaving the card spinning indefinitely.
     private static let timeout: TimeInterval = 25
+    private static let candidateTimeout: TimeInterval = 8
 
     // MARK: - Entry point
 
@@ -57,14 +71,32 @@ enum ClaudeUsageProbe {
     /// the main actor; honors task cancellation (panel closed mid-probe) by
     /// terminating the child process.
     static func fetch(now: Date = Date()) async throws -> ProviderRateLimit {
-        let candidates = discoverBinaries()
+        try await fetch(candidates: discoverBinaries(), now: now, timeout: timeout)
+    }
+
+    /// Injectable entry point for lifecycle tests. `timeout` is one overall
+    /// monotonic budget shared by all candidate binaries.
+    static func fetch(
+        candidates: [Binary],
+        now: Date = Date(),
+        timeout: TimeInterval
+    ) async throws -> ProviderRateLimit {
         guard !candidates.isEmpty else { throw ProbeError.noBinary }
 
+        let deadline = ProcessInfo.processInfo.systemUptime + max(0, timeout)
         var lastError: Error = ProbeError.noResponse
         for candidate in candidates {
             try Task.checkCancellation()
+            let remaining = deadline - ProcessInfo.processInfo.systemUptime
+            guard remaining > 0 else {
+                lastError = ProbeError.timedOut
+                break
+            }
             do {
-                let raw = try await run(candidate: candidate)
+                let raw = try await run(
+                    candidate: candidate,
+                    timeout: min(candidateTimeout, remaining)
+                )
                 guard let payload = try? JSONSerialization.jsonObject(with: raw) as? [String: Any] else {
                     throw ProbeError.noResponse
                 }
@@ -198,6 +230,10 @@ enum ClaudeUsageProbe {
                     kind: .desktop,
                     label: AppStrings.text("Claude Desktop 内置 \(version.lastPathComponent)", "Claude Desktop bundled \(version.lastPathComponent)")
                 ))
+                // Older Desktop-managed versions are rollback copies with the
+                // same account and protocol. Retrying all of them multiplies a
+                // failed probe's latency without adding a distinct source.
+                break
             }
         }
 
@@ -223,35 +259,29 @@ enum ClaudeUsageProbe {
 
     // MARK: - Control protocol
 
-    /// Launch one binary, exchange `initialize` + `get_usage`, return the raw
-    /// `response` payload as JSON bytes. Blocking work runs on a detached task;
-    /// cancellation and the timeout both terminate the child so no process is
-    /// left behind. Bytes rather than a parsed dictionary because `[String: Any]`
-    /// cannot cross an isolation boundary under strict concurrency.
-    private static func run(candidate: Binary) async throws -> Data {
-        let task = Task.detached(priority: .userInitiated) { () throws -> Data in
-            try runBlocking(candidate: candidate)
-        }
-        return try await withTaskCancellationHandler {
-            try await task.value
-        } onCancel: {
-            task.cancel()
-        }
-    }
+    /// Launch one binary, exchange `initialize` + `get_usage`, and return the
+    /// response payload. Async pipe iteration lets cancellation stop waiting
+    /// even if a descendant inherited and retained stdout.
+    ///
+    /// `--input-format stream-json` is accepted only in print mode by current
+    /// Claude Code releases. Keep the argument list testable so future flag
+    /// changes cannot silently break the explicitly enabled quota probe.
+    static let processArguments = [
+        "--print",
+        "--safe-mode",
+        "--no-session-persistence",
+        "--strict-mcp-config",
+        "--mcp-config", #"{"mcpServers":{}}"#,
+        "--tools", "",
+        "--output-format", "stream-json",
+        "--input-format", "stream-json",
+        "--verbose",
+    ]
 
-    private static func runBlocking(candidate: Binary) throws -> Data {
+    private static func run(candidate: Binary, timeout: TimeInterval) async throws -> Data {
         let process = Process()
         process.executableURL = candidate.url
-        process.arguments = [
-            "--safe-mode",
-            "--no-session-persistence",
-            "--strict-mcp-config",
-            "--mcp-config", #"{"mcpServers":{}}"#,
-            "--tools", "",
-            "--output-format", "stream-json",
-            "--input-format", "stream-json",
-            "--verbose",
-        ]
+        process.arguments = processArguments
         process.currentDirectoryURL = FileManager.default.homeDirectoryForCurrentUser
         process.environment = childEnvironment()
 
@@ -268,23 +298,54 @@ enum ClaudeUsageProbe {
         } catch {
             throw ProbeError.launchFailed(error.localizedDescription)
         }
-
-        // Watchdog: `waitUntilExit`/`readData` are blocking, so the only way to
-        // bound the whole exchange is to terminate the child from another queue.
-        let watchdog = DispatchWorkItem {
-            if process.isRunning { process.terminate() }
-        }
-        DispatchQueue.global().asyncAfter(deadline: .now() + timeout, execute: watchdog)
+        let control = ProcessControl()
+        control.register(process)
         defer {
-            watchdog.cancel()
+            control.unregister(process)
             if process.isRunning {
                 process.terminate()
             }
         }
 
+        let timeoutNanoseconds = UInt64(max(0, timeout) * 1_000_000_000)
+        return try await withTaskCancellationHandler {
+            do {
+                let data = try await withThrowingTaskGroup(
+                    of: Data.self,
+                    returning: Data.self
+                ) { group in
+                    group.addTask {
+                        try await exchange(
+                            stdin: stdin.fileHandleForWriting,
+                            stdout: stdout.fileHandleForReading
+                        )
+                    }
+                    group.addTask {
+                        try await Task.sleep(nanoseconds: timeoutNanoseconds)
+                        control.stop()
+                        throw ProbeError.timedOut
+                    }
+                    defer { group.cancelAll() }
+                    guard let first = try await group.next() else {
+                        throw ProbeError.noResponse
+                    }
+                    return first
+                }
+                try Task.checkCancellation()
+                return data
+            } catch {
+                try Task.checkCancellation()
+                throw error
+            }
+        } onCancel: {
+            control.stop()
+        }
+    }
+
+    private static func exchange(stdin: FileHandle, stdout: FileHandle) async throws -> Data {
         func send(_ object: [String: Any]) throws {
             guard let data = try? JSONSerialization.data(withJSONObject: object) else { return }
-            try stdin.fileHandleForWriting.write(contentsOf: data + Data("\n".utf8))
+            try stdin.write(contentsOf: data + Data("\n".utf8))
         }
 
         try send([
@@ -293,11 +354,10 @@ enum ClaudeUsageProbe {
             "request": ["subtype": "initialize"],
         ])
 
-        var reader = LineReader(handle: stdout.fileHandleForReading)
         var sentUsageRequest = false
 
-        while let line = reader.nextLine() {
-            if Task.isCancelled { throw CancellationError() }
+        for try await line in stdout.bytes.lines {
+            try Task.checkCancellation()
             guard let object = try? JSONSerialization.jsonObject(with: Data(line.utf8)) as? [String: Any],
                   object["type"] as? String == "control_response",
                   let response = object["response"] as? [String: Any]
@@ -314,7 +374,7 @@ enum ClaudeUsageProbe {
             case "vibe-usage":
                 // Close stdin so the binary shuts down on its own (exit 0)
                 // instead of being terminated by the deferred cleanup.
-                try? stdin.fileHandleForWriting.close()
+                try? stdin.close()
                 guard response["subtype"] as? String == "success",
                       let payload = response["response"] as? [String: Any],
                       let data = try? JSONSerialization.data(withJSONObject: payload)
@@ -327,7 +387,39 @@ enum ClaudeUsageProbe {
             }
         }
 
-        throw process.isRunning ? ProbeError.timedOut : ProbeError.noResponse
+        try Task.checkCancellation()
+        throw ProbeError.noResponse
+    }
+
+    /// Bridges structured-concurrency cancellation to Foundation `Process`.
+    private final class ProcessControl: @unchecked Sendable {
+        private let lock = NSLock()
+        private var process: Process?
+        private var isStopped = false
+
+        func register(_ process: Process) {
+            lock.lock()
+            let shouldStop = isStopped
+            if !shouldStop { self.process = process }
+            lock.unlock()
+
+            if shouldStop, process.isRunning { process.terminate() }
+        }
+
+        func unregister(_ process: Process) {
+            lock.lock()
+            if self.process === process { self.process = nil }
+            lock.unlock()
+        }
+
+        func stop() {
+            lock.lock()
+            isStopped = true
+            let process = self.process
+            lock.unlock()
+
+            if let process, process.isRunning { process.terminate() }
+        }
     }
 
     /// Pass only basic process context and the user's selected Claude profile.
@@ -345,43 +437,6 @@ enum ClaudeUsageProbe {
         let base = "/usr/local/bin:/opt/homebrew/bin:/usr/bin:/bin:/usr/sbin:/sbin"
         env["PATH"] = inherited["PATH"].map { "\($0):\(base)" } ?? base
         return env
-    }
-
-    /// Incremental newline splitter over a blocking pipe. The `initialize`
-    /// response alone can be tens of KB (every command and skill is enumerated),
-    /// so the stream has to be consumed as it arrives rather than buffered
-    /// whole — an unread pipe would stall the child.
-    private struct LineReader {
-        private let handle: FileHandle
-        private var buffer = Data()
-        private var reachedEOF = false
-
-        init(handle: FileHandle) {
-            self.handle = handle
-        }
-
-        mutating func nextLine() -> String? {
-            while true {
-                if let index = buffer.firstIndex(of: UInt8(ascii: "\n")) {
-                    let lineData = buffer[buffer.startIndex..<index]
-                    buffer.removeSubrange(buffer.startIndex...index)
-                    guard let line = String(data: lineData, encoding: .utf8), !line.isEmpty else { continue }
-                    return line
-                }
-                if reachedEOF { return nil }
-                let chunk = handle.availableData
-                if chunk.isEmpty {
-                    reachedEOF = true
-                    // Surface a trailing unterminated line before giving up.
-                    if !buffer.isEmpty {
-                        defer { buffer.removeAll() }
-                        return String(data: buffer, encoding: .utf8)
-                    }
-                    return nil
-                }
-                buffer.append(chunk)
-            }
-        }
     }
 
     // MARK: - Response parsing

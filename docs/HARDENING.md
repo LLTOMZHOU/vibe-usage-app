@@ -1,7 +1,8 @@
 # Hardened fork design
 
-This fork starts from upstream app commit
-`9c762033be1a1109019840495432930d873669ec` and vendors collector commit
+This fork's app review is current through upstream commit
+`bc38182571728d48b394b0883ecca846f6ba860c`; the original hardened baseline was
+`9c762033be1a1109019840495432930d873669ec`. It vendors collector commit
 `6c72607286b125488003c741c280d4cce6263d1f` (`0.10.11`).
 
 ## Threats addressed

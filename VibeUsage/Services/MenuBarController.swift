@@ -336,8 +336,9 @@ final class MenuBarController: NSObject {
     }
 
     private func positionPanel(_ panel: PopoverPanel) {
-        guard let buttonWindow = statusItem.button?.window else { return }
-        let buttonFrame = buttonWindow.frame
+        guard let buttonWindow = statusItem.button?.window,
+              let buttonFrame = statusItemButtonScreenFrame()
+        else { return }
 
         // Use the constant width — on first open SwiftUI hasn't laid out yet so
         // panel.frame.size.width can be 0/stale, which sends the right-aligned
@@ -347,7 +348,9 @@ final class MenuBarController: NSObject {
         // Anchor the panel's right edge to the icon's right edge so a far-right icon
         // doesn't push the panel off-screen. Use setFrameTopLeftPoint so we don't
         // depend on the (possibly stale) height for the Y calculation.
-        if let screen = NSScreen.screens.first(where: { $0.frame.contains(buttonFrame.origin) }) ?? NSScreen.main {
+        if let screen = NSScreen.screens.first(where: {
+            $0.frame.contains(NSPoint(x: buttonFrame.midX, y: buttonFrame.midY))
+        }) ?? buttonWindow.screen ?? NSScreen.main {
             let point = PopoverGeometry.topLeftPoint(
                 buttonFrame: buttonFrame,
                 visibleFrame: screen.visibleFrame,
@@ -357,6 +360,14 @@ final class MenuBarController: NSObject {
             )
             panel.setFrameTopLeftPoint(point)
         }
+    }
+
+    private func statusItemButtonScreenFrame() -> NSRect? {
+        guard let button = statusItem.button, let buttonWindow = button.window else { return nil }
+        let frameInWindow = button.convert(button.bounds, to: nil)
+        let frameOnScreen = buttonWindow.convertToScreen(frameInWindow)
+        guard frameOnScreen.width > 0, frameOnScreen.height > 0 else { return nil }
+        return frameOnScreen
     }
 
     // MARK: - Animation
@@ -488,7 +499,7 @@ final class MenuBarController: NSObject {
                 // Ignore clicks on our own status-bar button — `button.action` runs on
                 // mouse-up and will toggle the panel itself. If we close here on
                 // mouse-down, the subsequent mouse-up reopens it.
-                if let buttonFrame = self.statusItem.button?.window?.frame,
+                if let buttonFrame = self.statusItemButtonScreenFrame(),
                    buttonFrame.contains(NSEvent.mouseLocation) {
                     return
                 }
