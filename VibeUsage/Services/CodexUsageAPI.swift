@@ -230,8 +230,20 @@ enum CodexUsageAPI {
 
     static func parseUsageResponse(_ data: Data, now: Date = Date()) -> ProviderRateLimit? {
         guard let obj = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
-              let rateLimit = obj["rate_limit"] as? [String: Any]
+              let rawRateLimit = obj["rate_limit"]
         else { return nil }
+
+        // The live endpoint may explicitly return `rate_limit: null` when it
+        // has no current window. That is a valid empty response, unlike a
+        // missing key or an unexpected scalar, which still signals schema drift.
+        let rateLimit: [String: Any]
+        if rawRateLimit is NSNull {
+            rateLimit = [:]
+        } else if let object = rawRateLimit as? [String: Any] {
+            rateLimit = object
+        } else {
+            return nil
+        }
 
         var fiveHour: RateLimitWindow?
         var sevenDay: RateLimitWindow?
